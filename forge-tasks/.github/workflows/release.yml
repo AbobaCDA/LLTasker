@@ -1,0 +1,84 @@
+name: Build and publish Windows release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Check environment
+        shell: pwsh
+        run: |
+          node -v
+          npm -v
+          $version = node -p "require('./package.json').version"
+          $repo = node -p "require('./package.json').build.publish[0].repo"
+          Write-Host "Версия в package.json: $version · репозиторий для публикации: $repo"
+          if (-not (Test-Path package-lock.json)) {
+            Write-Host "::warning::package-lock.json отсутствует — установка пойдёт через npm install"
+          }
+
+      - name: Check tag matches package version
+        if: github.event_name == 'push'
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          $version = node -p "require('./package.json').version"
+          $expectedTag = "v$version"
+          if ($env:RELEASE_TAG -ne $expectedTag) {
+            throw "Тег $env:RELEASE_TAG не совпадает с версией $version (ожидается $expectedTag)."
+          }
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          npm ci --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "npm ci не сработал (обычно нет package-lock.json или он разошёлся с package.json) — ставлю через npm install"
+            npm install --no-audit --no-fund
+            if ($LASTEXITCODE -ne 0) { throw "Не удалось установить зависимости" }
+          }
+
+      - name: Run tests (схема БД, парсер, синхронизация, напоминания)
+        run: npm test
+
+      - name: Build and publish NSIS release
+        run: npm run release:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Если появится сертификат Authenticode, раскомментируйте:
+          # WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          # WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+
+      - name: Verify updater assets are published
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $version = node -p "require('./package.json').version"
+          $tag = "v$version"
+          $setup = "release/Forge-Tasks-Setup-$version.exe"
+          $assets = @($setup, "${setup}.blockmap", "release/latest.yml")
+          foreach ($asset in $assets) {
+            if (-not (Test-Path $asset)) {
+              throw "Не найден обязательный файл обновления: $asset"
+            }
+          }
+          gh release upload $tag $assets --clobber
