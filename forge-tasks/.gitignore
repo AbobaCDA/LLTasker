@@ -1,7 +1,0 @@
-node_modules/
-release/
-dist/
-*.log
-.env
-.env.*
-tests/node_modules/
