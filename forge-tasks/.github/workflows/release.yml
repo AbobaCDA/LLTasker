@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: write   # нужно и для публикации релиза, и для gh CLI
 
 jobs:
   release:
@@ -20,7 +20,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
+          # Кэш npm включаем только если package-lock.json есть в репозитории:
+          # иначе setup-node падает с «Dependencies lock file is not found».
+          cache: ${{ hashFiles('package-lock.json') != '' && 'npm' || '' }}
 
       - name: Check environment
         shell: pwsh
@@ -59,15 +61,24 @@ jobs:
       - name: Run tests (схема БД, парсер, синхронизация, напоминания)
         run: npm test
 
-      - name: Build and publish NSIS release
-        run: npm run release:win
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Если появится сертификат Authenticode, раскомментируйте:
-          # WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
-          # WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+      # Собираем без публикации: публикацию делает отдельный шаг через gh CLI.
+      # Так меньше сюрпризов от встроенного публикатора electron-builder.
+      - name: Build NSIS package
+        run: npm run dist:win
 
-      - name: Verify updater assets are published
+      - name: Upload build artifacts to the run
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: forge-tasks-${{ github.ref_name || 'manual' }}
+          if-no-files-found: warn
+          path: |
+            release/*.exe
+            release/*.yml
+            release/*.blockmap
+
+      - name: Publish release (only for tag pushes)
+        if: github.event_name == 'push'
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -76,9 +87,21 @@ jobs:
           $tag = "v$version"
           $setup = "release/Forge-Tasks-Setup-$version.exe"
           $assets = @($setup, "${setup}.blockmap", "release/latest.yml")
+
           foreach ($asset in $assets) {
-            if (-not (Test-Path $asset)) {
-              throw "Не найден обязательный файл обновления: $asset"
-            }
+            if (-not (Test-Path $asset)) { throw "Не найден обязательный файл обновления: $asset" }
           }
-          gh release upload $tag $assets --clobber
+
+          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "Релиза $tag ещё нет — создаю."
+            gh release create $tag --repo $env:GITHUB_REPOSITORY --title "Forge Tasks $version" --generate-notes
+            if ($LASTEXITCODE -ne 0) { throw "Не удалось создать релиз $tag" }
+          } else {
+            Write-Host "Релиз $tag уже существует — обновляю файлы."
+          }
+
+          gh release upload $tag $assets --repo $env:GITHUB_REPOSITORY --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Не удалось загрузить файлы релиза" }
+
+          Write-Host "Готово: https://github.com/$env:GITHUB_REPOSITORY/releases/tag/$tag"
