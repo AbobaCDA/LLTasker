@@ -118,8 +118,9 @@ select cron.unschedule(jobid) from cron.job where jobname = 'forge-tasks-reminde
 
 ## 6. Релиз
 
-Сначала создайте репозиторий (например `ForgeTasks`) и подставьте его в `package.json`:
-`build.publish.owner` и `build.publish.repo`. От них зависят автообновление и адрес релизов.
+Репозиторий проекта — `https://github.com/AbobaCDA/LLTasker`; он указан в `package.json`:
+`build.publish.owner` = `AbobaCDA`, `build.publish.repo` = `LLTasker`. От этих полей зависят автообновление
+и адрес релизов — при переименовании репозитория их нужно поправить.
 Тег `vX.Y.Z` должен совпадать с `version` в `package.json`. Дальше GitHub Actions (`.github/workflows/release.yml`) на `windows-latest` собирает NSIS-установщик и публикует релиз с `latest.yml` и `.blockmap` — приложение обновляется через `electron-updater`.
 
 ```bash

@@ -403,7 +403,9 @@ Invoke-RestMethod -Method Post -Uri "https://api.telegram.org/bot$token/setMyCom
 | Напоминания приходят дважды | в `cron.job` больше одного задания с этим именем: удалите лишние и создайте одно |
 | Уведомления Windows не появляются | в настройках приложения режим уведомлений не должен быть «Только Telegram»; проверьте, что приложение запущено (значок в трее) |
 | Время напоминаний сдвинуто | проверьте часовой пояс: **Настройки → Расписание → Часовой пояс** (он же уходит в облако и определяет дайджест) |
-| В логе `electron-builder version=26.5.0` вместо `26.15.3` | сработал `npm audit fix --force`, он понижает сборщик. Верните в `package.json` `"electron-builder": "26.15.3"`, затем `npm install` |
+| В логе `electron-builder version=26.5.0` вместо `26.15.3` | сработал `npm audit fix --force`, он понижает сборщик. Запустите `tools\fix-package-json.cmd` — скрипт вернёт версии и переустановит зависимости |
+| `npm ls electron-builder` показывает старую версию после правки `package.json` | команда смотрит в `node_modules`, а не в файл: нужен `npm install` после правки. Проверить сам файл: `node -p "require('./package.json').devDependencies['electron-builder']"` |
+| Не нахожу нужные строки в `package.json` | скорее всего архив распаковался во вложенную папку (`forge-tasks\forge-tasks\`). Проверьте: `dir /b` — если внутри видна папка `forge-tasks`, перенесите её содержимое на уровень выше. Найти маркер в файле: `findstr /C:"LLTasker" package.json` |
 | Сборка падает за 15–20 секунд, `Dependencies lock file is not found` | нет `package-lock.json` в коммите под тегом: создайте файл, закоммитьте, пересоздайте тег |
 | В логе `• publishing publisher=Github (owner: X, project: Y)` и затем `404 Not Found` на `api.github.com/repos/X/Y/releases` | в `package.json` (`build.publish.repo`) указан не тот репозиторий, куда вы пушите. Должно быть `owner: AbobaCDA`, `repo: LLTasker` — сверьте со страницей репозитория |
 | Сборка дошла до публикации и упала с трейсом `PublishManager.awaitTasks` | у встроенного публикатора electron-builder нет прав или релиз с этим тегом уже существует. Обновите workflow: публикация идёт через `gh release` |

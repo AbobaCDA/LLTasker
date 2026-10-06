@@ -1,5 +1,18 @@
 # Forge Tasks — настройка по шагам
 
+**Сейчас вы здесь:** Часть 1 — сборка релиза идёт во вкладке **Actions**. Как только в **Releases**
+появится `Forge-Tasks-Setup-0.1.0.exe` — переходите к **Части 2 (Supabase)**. Ниже видно, что уже закрыто.
+
+| Часть | Статус |
+| --- | --- |
+| 0. Подготовка (аккаунты, бот у BotFather) | сделано |
+| 1. Гит и первая сборка | код в `AbobaCDA/LLTasker`, сборка запущена |
+| 2. Supabase: база, функции, расписание | **следующий шаг** |
+| 3. Telegram: webhook, владелец, команды | после части 2 |
+| 4. Приложение: облако, аккаунт, привязка бота | после части 3 |
+| 5–7. Чек-лист, диагностика, планы по интерфейсу | в конце |
+
+
 Инструкция для владельца проекта: поднять репозиторий, Supabase и Telegram-бота. Делается один раз,
 занимает примерно 30–40 минут. После этого приложение работает с облаком и напоминаниями.
 
@@ -25,45 +38,147 @@
 
 Проект из воркспейса нужно превратить в репозиторий, из которого потом собирается `.exe`.
 
-- [ ] **1.1.** Создайте репозиторий: GitHub → **New repository** → имя `ForgeTasks` → **Public** → без README и .gitignore (они уже есть в проекте).
+- [ ] **1.1.** Создайте репозиторий: GitHub → **New repository** → имя `LLTasker` → **Public** → без README и .gitignore (они уже есть в проекте).
   Почему public: автообновление в приложении скачивает релиз анонимно. С приватным репозиторием обновления не заработают без токена внутри приложения.
-- [ ] **1.2.** Откройте PowerShell в папке проекта и инициализируйте репозиторий:
+- [ ] **1.2.** Проверьте, что репозиторий существует и запомните его точное имя: откройте
+  [github.com/settings/profile](https://github.com/settings/profile) — поле **Username** (не «Name»:
+  оно может быть с пробелами и русскими буквами) — и список репозиториев
+  [github.com](https://github.com) → «Your repositories».
+  Владелец проекта — `AbobaCDA`, репозиторий — `LLTasker`: `https://github.com/AbobaCDA/LLTasker.git`.
 
-```powershell
-cd C:\dev\forge-tasks
+- [ ] **1.3.** Откройте терминал в папке проекта и инициализируйте репозиторий. Команды ниже работают и в CMD, и в PowerShell — логин вписывается прямо в адрес:
+
+```bash
+cd C:\Users\Mike\Desktop\Tasker\forge-tasks
+
 git init
 git add .
 git commit -m "Forge Tasks: каркас таск-трекера"
 git branch -M main
-git remote add origin https://github.com/ВАШ_ЛОГИН/ForgeTasks.git
+git remote add origin "https://github.com/AbobaCDA/LLTasker.git"   # имя репозитория — как на GitHub
+```
+
+> Переменные у оболочек разные: `$login = "..."` понимает только PowerShell, в CMD будет ошибка
+> «"$login" не является внутренней или внешней командой». Поэтому проще вписать логин в адрес.
+> Если переменная всё же нужна — откройте PowerShell (`Win+X` → «Терминал») или наберите `powershell` прямо в CMD.
+
+- [ ] **1.3.1.** Убедитесь, что в папке есть `package-lock.json` — файл со списком версий зависимостей:
+
+```bash
+dir package-lock.json
+```
+
+Он обязателен: сборка в GitHub Actions использует `npm ci`, который работает только при наличии этого файла,
+и без него workflow падает за 15–20 секунд. В архиве проекта файл есть; если его нет, создайте:
+
+```bash
+npm install --package-lock-only
+```
+
+- [ ] **1.4.** Проверьте адрес перед отправкой — эта команда отличает «неправильный адрес» от «неправильной авторизации»:
+
+```bash
+git remote -v          # должно быть https://github.com/AbobaCDA/LLTasker.git для fetch и push
+git ls-remote origin   # пусто и без ошибки = репозиторий найден
+```
+
+> **Важно про копирование.** Адрес нельзя копировать из отформатированного текста (чат, просмотр документации):
+> вместе с ним легко утащить markdown-разметку, и тогда в `git remote -v` появится
+> `[https://github.com/AbobaCDA/LLTasker.git](https://github.com/AbobaCDA/LLTasker.git)` — со скобками.
+> Git воспримет скобки как часть имени репозитория и ответит `Repository not found`.
+> Набирайте адрес вручную или копируйте из адресной строки браузера на странице своего репозитория.
+> Если разметка уже попала в remote — запустите `tools\fix-git-remote.cmd` или выполните:
+> `git remote remove origin` и `git remote add origin https://github.com/AbobaCDA/LLTasker.git`.
+
+Если `git ls-remote` отвечает `Repository not found` — имя репозитория другое, либо он не создан (шаг 1.1). Если `origin` добавлен с ошибкой, исправьте адрес: `git remote set-url origin "https://github.com/AbobaCDA/LLTasker.git"`.
+
+- [ ] **1.5.** Отправьте код:
+
+```bash
 git push -u origin main
 ```
 
-- [ ] **1.3.** Проверьте на GitHub, что код на месте. Вкладка **Actions** должна показать workflow «Build and publish Windows release» — он пока не запускается, это правильно: сборка идёт по тегу.
-- [ ] **1.4.** Подставьте свой репозиторий в `package.json`, иначе автообновление будет искать релизы не там. В разделе `build.publish` замените логин:
+- [ ] **1.6.** Проверьте на GitHub, что код на месте. Вкладка **Actions** должна показать workflow «Build and publish Windows release» — он пока не запускается, это правильно: сборка идёт по тегу.
+- [ ] **1.7.** Проверьте `package.json`, раздел `build.publish` — от него зависит адрес автообновления:
 
 ```json
 "publish": [
-  { "provider": "github", "owner": "ВАШ_ЛОГИН", "repo": "ForgeTasks", "releaseType": "release" }
+  { "provider": "github", "owner": "AbobaCDA", "repo": "LLTasker", "releaseType": "release" }
 ]
 ```
 
-Коммит и пуш:
+Здесь всё уже верно: `owner` — `AbobaCDA`, `repo` — `LLTasker`. Менять ничего не нужно, если только вы не переименуете репозиторий на GitHub.
 
 ```powershell
-git add package.json
-git commit -m "Указываю свой репозиторий для обновлений"
-git push
-```
+На всякий случай сверьтесь со страницей репозитория: имя в адресной строке браузера и в поле `repo` должны совпадать.
 
-- [ ] **1.5.** Выпустите первую версию: тег должен точно совпадать с `version` в `package.json` (`0.1.0` → `v0.1.0`):
+- [ ] **1.8.** Убедитесь, что репозиторий **публичный** — на его странице рядом с названием стоит «Public».
+  С приватным автообновление не работает: приложение скачивает релиз анонимно.
+  Сменить видимость: **Settings → General → внизу Danger Zone → Change repository visibility → Make public**.
+
+- [ ] **1.9.** Выпустите первую версию: тег должен точно совпадать с `version` в `package.json` (`0.1.0` → `v0.1.0`):
 
 ```powershell
 git tag v0.1.0
 git push origin v0.1.0
 ```
 
-- [ ] **1.6.** Дождитесь сборки (5–10 минут, вкладка **Actions** → клик по запуску → логи). В конце в разделе **Releases** появится `Forge-Tasks-Setup-0.1.0.exe` и файлы `latest.yml`, `.blockmap` — по ним работает автообновление.
+- [ ] **1.10.** Дождитесь сборки (5–10 минут, вкладка **Actions** → клик по запуску → логи). В конце в разделе **Releases** появится `Forge-Tasks-Setup-0.1.0.exe` и файлы `latest.yml`, `.blockmap` — по ним работает автообновление.
+
+**Если сборка упала.** Откройте **Actions** → клик по запуску → слева задача `release` → раскрыть шаг
+с красным крестиком: там написана причина. Две самые частые:
+
+| Что в логе | Причина | Что делать |
+| --- | --- | --- |
+| Падение за 15–20 секунд, `Error: Dependencies lock file is not found in D:\a\…` | файла `package-lock.json` нет **в том коммите, на который указывает тег** | шаг «Как добавить lock-файл в репозиторий» ниже: создать файл, закоммитить, переставить тег |
+| `npm ci can only install with an existing package-lock.json` | то же самое, но на шаге установки | то же |
+| `Тег v… не совпадает с версией …` | тег и `version` в `package.json` разошлись | удалите тег и создайте заново на нужной версии (команды ниже) |
+
+**Как добавить lock-файл в репозиторий.** Важно: тег указывает на конкретный коммит, поэтому файл
+нужно не просто создать, а закоммитить **до** тега. Проверьте три вещи:
+
+```bash
+dir package-lock.json            # 1. файл создан локально? Если нет — npm install --package-lock-only
+git ls-files package-lock.json   # 2. файл отслеживается гитом? Пустой вывод = нет, нужно git add
+git log --oneline -1 v0.1.0      # 3. на каком коммите стоит тег (hash сравните с git log -1)
+```
+
+Затем коммит и отправка:
+
+```bash
+git add -A
+git status                       # в списке должен быть package-lock.json
+git commit -m "Добавляю package-lock.json"
+git push
+```
+
+**Перезапуск сборки после правок** — теги неизменяемы, поэтому старый удаляем и ставим заново:
+
+```bash
+git add -A
+git commit -m "Правки перед сборкой"
+git push
+
+git push origin :refs/tags/v0.1.0   # удаляем старый тег на GitHub
+git tag -d v0.1.0 2>$null || true   # и локально (в CMD: git tag -d v0.1.0)
+git tag v0.1.0
+git push origin v0.1.0              # запускает сборку заново
+```
+
+Альтернатива без тегов: **Actions → Build and publish Windows release → Run workflow**. Этот запуск идёт
+без проверки тега, но публикация релиза ориентируется на версию из `package.json`, поэтому такой способ
+годится для проверки, что сборка вообще проходит, а не для выпуска релиза.
+
+**Как читать лог сборки.** Шаги по порядку и что они значат:
+
+1. `Install dependencies` — установка пакетов;
+2. `Run tests` — 151 проверка; красный означает проблему в коде, а не в окружении;
+3. `Build NSIS package` — сборка установщика (здесь ошибки electron-builder, например про права);
+4. `Upload build artifacts to the run` — собранные файлы прикладываются к запуску, их можно скачать даже без релиза;
+5. `Publish release` — публикация во вкладке Releases через `gh`.
+
+Если шаг 3 или 5 упал, файлы всё равно лежат в артефактах запуска (шаг 4). Скачайте оттуда `.exe` и `latest.yml`
+и приложите к релизу вручную: **Releases → Draft a new release** → тег `v0.1.0` → загрузить файлы.
 
 **Проверка части 1:** в Releases лежит `Forge-Tasks-Setup-0.1.0.exe`. Пока без Supabase приложение запустится и будет работать локально — это нормальный промежуточный результат.
 
@@ -187,6 +302,9 @@ select cron.schedule(
 
 ## Часть 3. Telegram: webhook, владелец, команды
 
+> Команды этой части — для **PowerShell**, а не CMD: в CMD не работает `Invoke-RestMethod`.
+> Открыть PowerShell: `Win+X` → «Терминал», либо набрать `powershell` в уже открытом CMD.
+
 - [ ] **3.1.** Поставьте webhook. В PowerShell подставьте токен бота, свой project-ref и то же значение `TELEGRAM_WEBHOOK_SECRET`, что лежит в Edge Secrets:
 
 ```powershell
@@ -285,7 +403,20 @@ Invoke-RestMethod -Method Post -Uri "https://api.telegram.org/bot$token/setMyCom
 | Напоминания приходят дважды | в `cron.job` больше одного задания с этим именем: удалите лишние и создайте одно |
 | Уведомления Windows не появляются | в настройках приложения режим уведомлений не должен быть «Только Telegram»; проверьте, что приложение запущено (значок в трее) |
 | Время напоминаний сдвинуто | проверьте часовой пояс: **Настройки → Расписание → Часовой пояс** (он же уходит в облако и определяет дайджест) |
-| Автообновление не находит версию | в `package.json` `build.publish.owner/repo` не совпадают с репозиторием, либо репозиторий приватный |
+| В логе `electron-builder version=26.5.0` вместо `26.15.3` | сработал `npm audit fix --force`, он понижает сборщик. Запустите `tools\fix-package-json.cmd` — скрипт вернёт версии и переустановит зависимости |
+| `npm ls electron-builder` показывает старую версию после правки `package.json` | команда смотрит в `node_modules`, а не в файл: нужен `npm install` после правки. Проверить сам файл: `node -p "require('./package.json').devDependencies['electron-builder']"` |
+| Не нахожу нужные строки в `package.json` | скорее всего архив распаковался во вложенную папку (`forge-tasks\forge-tasks\`). Проверьте: `dir /b` — если внутри видна папка `forge-tasks`, перенесите её содержимое на уровень выше. Найти маркер в файле: `findstr /C:"LLTasker" package.json` |
+| Сборка падает за 15–20 секунд, `Dependencies lock file is not found` | нет `package-lock.json` в коммите под тегом: создайте файл, закоммитьте, пересоздайте тег |
+| В логе `• publishing publisher=Github (owner: X, project: Y)` и затем `404 Not Found` на `api.github.com/repos/X/Y/releases` | в `package.json` (`build.publish.repo`) указан не тот репозиторий, куда вы пушите. Должно быть `owner: AbobaCDA`, `repo: LLTasker` — сверьте со страницей репозитория |
+| Сборка дошла до публикации и упала с трейсом `PublishManager.awaitTasks` | у встроенного публикатора electron-builder нет прав или релиз с этим тегом уже существует. Обновите workflow: публикация идёт через `gh release` |
+| В логе публикации `403 Forbidden` / `Resource not accessible by integration` | у токена нет прав на запись: в workflow нужен блок `permissions: contents: write` (есть в актуальной версии файла) |
+| В логе публикации `422 Validation Failed` / `already_exists` | релиз с тегом уже создан (в том числе пустой от прошлой попытки). Новый workflow обновит существующий релиз через `gh release upload --clobber` |
+| Релиз опубликован, но файлов в нём нет | смотрите артефакты запуска: **Actions → запуск → Artifacts → forge-tasks-…** — там лежат `.exe`, `latest.yml`, `.blockmap`; их можно приложить к релизу вручную |
+| Сборка падает на шаге сборки с 404 при публикации | `build.publish.repo` в `package.json` не совпадает с именем репозитория на GitHub (должно быть `LLTasker`) |
+| Автообновление не находит версию | `build.publish.repo` в `package.json` не совпадает с именем репозитория, либо репозиторий приватный |
+| `git push` пишет `Repository not found` | в адресе remote мусор (скобки, кавычки, плейсхолдер) или репозиторий ещё не создан: `git remote -v` покажет реальный адрес; исправляется через `git remote set-url origin "https://github.com/AbobaCDA/LLTasker.git"` |
+| `git push` просит пароль | GitHub не принимает пароль аккаунта. Создайте токен: [github.com/settings/tokens](https://github.com/settings/tokens) → Generate new token (classic) → scope `repo` → вставьте его вместо пароля. Обычно на Windows достаточно войти в открывшемся окне браузера |
+| `git push` отклонён: `rejected non-fast-forward` | при создании репозитория добавили README. Выполните `git pull --rebase origin main`, затем `git push -u origin main` |
 | `supabase: command not found` | CLI не установлен: шаг 2.8, либо используйте `npx supabase` |
 
 ---

@@ -20,7 +20,7 @@
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
     "electron": "44.5.1",
-    "electron-builder": "^26.5.0"
+    "electron-builder": "26.15.3"
   },
   "build": {
     "appId": "com.forge.forgetasks",
@@ -46,7 +46,7 @@
       {
         "provider": "github",
         "owner": "AbobaCDA",
-        "repo": "ForgeTasks",
+        "repo": "LLTasker",
         "releaseType": "release"
       }
     ],
