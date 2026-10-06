@@ -30,8 +30,22 @@ jobs:
           node -v
           npm -v
           $version = node -p "require('./package.json').version"
+          $builder = node -p "require('./package.json').devDependencies['electron-builder']"
           $repo = node -p "require('./package.json').build.publish[0].repo"
-          Write-Host "Версия в package.json: $version · репозиторий для публикации: $repo"
+          $owner = node -p "require('./package.json').build.publish[0].owner"
+          Write-Host "Версия: $version · сборщик: $builder · публикация: $owner/$repo"
+
+          # Проверяем, что публикуем в тот же репозиторий, в котором идёт сборка.
+          # Ошибка здесь лучше, чем 404 при публикации в середине сборки.
+          $actual = $env:GITHUB_REPOSITORY
+          if ("$owner/$repo" -ne $actual) {
+            throw "package.json указывает на $owner/$repo, а сборка идёт в $actual. Исправьте build.publish в package.json."
+          }
+          Write-Host "Репозиторий совпадает: $actual"
+
+          if ($builder -notlike "*26.15*") {
+            Write-Host "::warning::electron-builder в package.json = $builder. Если недавно запускали 'npm audit fix --force', он понизил версию сборщика — верните ^26.15.3."
+          }
           if (-not (Test-Path package-lock.json)) {
             Write-Host "::warning::package-lock.json отсутствует — установка пойдёт через npm install"
           }

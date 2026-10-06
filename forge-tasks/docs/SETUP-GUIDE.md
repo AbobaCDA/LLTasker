@@ -403,7 +403,9 @@ Invoke-RestMethod -Method Post -Uri "https://api.telegram.org/bot$token/setMyCom
 | Напоминания приходят дважды | в `cron.job` больше одного задания с этим именем: удалите лишние и создайте одно |
 | Уведомления Windows не появляются | в настройках приложения режим уведомлений не должен быть «Только Telegram»; проверьте, что приложение запущено (значок в трее) |
 | Время напоминаний сдвинуто | проверьте часовой пояс: **Настройки → Расписание → Часовой пояс** (он же уходит в облако и определяет дайджест) |
+| В логе `electron-builder version=26.5.0` вместо `26.15.3` | сработал `npm audit fix --force`, он понижает сборщик. Верните в `package.json` `"electron-builder": "26.15.3"`, затем `npm install` |
 | Сборка падает за 15–20 секунд, `Dependencies lock file is not found` | нет `package-lock.json` в коммите под тегом: создайте файл, закоммитьте, пересоздайте тег |
+| В логе `• publishing publisher=Github (owner: X, project: Y)` и затем `404 Not Found` на `api.github.com/repos/X/Y/releases` | в `package.json` (`build.publish.repo`) указан не тот репозиторий, куда вы пушите. Должно быть `owner: AbobaCDA`, `repo: LLTasker` — сверьте со страницей репозитория |
 | Сборка дошла до публикации и упала с трейсом `PublishManager.awaitTasks` | у встроенного публикатора electron-builder нет прав или релиз с этим тегом уже существует. Обновите workflow: публикация идёт через `gh release` |
 | В логе публикации `403 Forbidden` / `Resource not accessible by integration` | у токена нет прав на запись: в workflow нужен блок `permissions: contents: write` (есть в актуальной версии файла) |
 | В логе публикации `422 Validation Failed` / `already_exists` | релиз с тегом уже создан (в том числе пустой от прошлой попытки). Новый workflow обновит существующий релиз через `gh release upload --clobber` |
