@@ -20,7 +20,7 @@
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
     "electron": "44.5.1",
-    "electron-builder": "26.15.3"
+    "electron-builder": "^26.5.0"
   },
   "build": {
     "appId": "com.forge.forgetasks",
