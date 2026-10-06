@@ -1,70 +1,72 @@
 @echo off
-chcp 65001 >nul
 setlocal
-
-rem Чистка публичного репозитория: убирает вложенную копию проекта, служебный файл $null
-rem и переносит внутреннюю документацию из репозитория в соседнюю папку на диске.
-rem Запуск: двойной клик по файлу или из CMD:  tools\cleanup-repo.cmd
-
 cd /d "%~dp0.."
-echo === Чистка репозитория ===
-echo Папка проекта: %CD%
+
+echo =========================================================
+echo   Cleanup of the public repository (full variant)
+echo =========================================================
+echo Project folder: %CD%
 echo.
 
-echo Сейчас в корне:
+echo Current root contents:
 dir /b
 echo.
 
-rem --- 1. Вложенная копия проекта (распакованный архив внутри репозитория) ---
+echo [1/3] Nested copy of the project (forge-tasks\ inside the repo):
 if exist "forge-tasks\" (
-  echo [1/3] Убираю вложенную копию проекта: forge-tasks\
   git rm -r -f --quiet --ignore-unmatch forge-tasks
   if exist "forge-tasks\" rmdir /s /q "forge-tasks"
+  echo   removed
 ) else (
-  echo [1/3] Вложенной папки forge-tasks нет — пропускаю
+  echo   not found   [skipped]
 )
 
-rem --- 2. Служебный файл $null (создаётся, если в CMD выполнить 2^>$null из PowerShell) ---
+echo [2/3] Service file "$null":
 if exist "$null" (
-  echo [2/3] Убираю служебный файл "$null"
   git rm -f --quiet --ignore-unmatch "$null"
   if exist "$null" del /q "$null"
+  echo   removed
 ) else (
-  echo [2/3] Файла "$null" нет — пропускаю
+  echo   not found   [skipped]
 )
 
-rem --- 3. Внутренняя документация: остаётся на диске, уходит из публичного репозитория ---
+echo [3/3] Internal documentation: moved out, stays on disk in ..\forge-tasks-docs
 if exist "docs\" (
   if not exist "..\forge-tasks-docs" mkdir "..\forge-tasks-docs"
-  echo [3/3] Переношу docs\ в ..\forge-tasks-docs ^(файлы останутся у вас^)
   xcopy "docs" "..\forge-tasks-docs" /E /I /Y >nul
-  git rm -r --cached --quiet docs
   rmdir /s /q "docs"
+  echo   moved
 ) else (
-  echo [3/3] Папки docs\ нет — пропускаю
+  echo   docs\ not found   [skipped]
 )
 
 echo.
-echo Что изменилось:
+echo Changes:
 git status --short
 echo.
 
-set /p answer=Закоммитить и отправить на GitHub? (y/n):
-if /i not "%answer%"=="y" goto :end
+set "answer="
+set /p "answer=Commit and push to GitHub? (y/n): "
+if /i not "%answer%"=="y" (
+  echo.
+  echo Skipped. Run "git add -A" and commit manually when ready.
+  goto :end
+)
 
 git add -A
-git commit -m "Чищу репозиторий: убираю дубль проекта, служебный файл и внутреннюю документацию"
+git commit -m "Clean up the public repository"
 if errorlevel 1 (
   echo.
-  echo Коммит не создан — возможно, изменений уже нет. Проверьте вывод git status выше.
+  echo Commit was not created - probably nothing to commit. See git status above.
   goto :end
 )
 git push
 
 echo.
-echo Готово. Документация осталась в ..\forge-tasks-docs, в репозитории её больше нет.
-echo Напоминание: в истории прошлых коммитов документ сохранится. Секретов в нём нет,
-echo поэтому это безопасно; если нужно вычистить и историю — см. инструкцию в гайде.
+echo Done. Documentation is in ..\forge-tasks-docs, the repository no longer has it.
+echo Note: old commits keep the old files in history. There are no secrets there, so it is safe.
 
 :end
+echo.
+pause
 endlocal

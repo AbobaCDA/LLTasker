@@ -10,5 +10,7 @@ tests/node_modules/
 # Внутренние документы: хранятся локально, в публичный репозиторий не попадают
 docs/
 SETUP-GUIDE.md
+SETUP-GUIDE.html
 DEPLOYMENT.md
+DEPLOYMENT.html
 forge-tasks-docs/
