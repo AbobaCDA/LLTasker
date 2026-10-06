@@ -10,7 +10,7 @@
     "start": "electron .",
     "test": "node tests/parser.test.mjs && node tests/db.test.mjs && node tests/sync.test.mjs && node tests/reminders.test.mjs",
     "dist:win": "electron-builder --win nsis --x64 --publish never",
-    "dist:portable": "electron-builder --win portable --x64",
+    "dist:portable": "electron-builder --win portable --x64 --publish never",
     "release:win": "electron-builder --win nsis --x64 --publish always"
   },
   "dependencies": {

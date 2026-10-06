@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Forge Tasks — развёртывание</title>
+<style>
+body { background:#f7f8fa; color:#1d2330; font:16px/1.6 "Segoe UI",system-ui,sans-serif; margin:0; padding:32px 16px; }
+.page { max-width:900px; margin:0 auto; background:#fff; border:1px solid #e3e7ef; border-radius:14px; padding:36px 44px; box-shadow:0 8px 30px rgba(20,30,60,.06); }
+h1 { font-size:30px; margin:0 0 6px; } h2 { font-size:22px; margin:34px 0 10px; padding-top:14px; border-top:1px solid #eef1f6; }
+h3 { font-size:17px; margin:22px 0 8px; } h4 { font-size:15px; margin:18px 0 6px; color:#4b5567; }
+code { background:#f1f4f9; border:1px solid #e3e7ef; border-radius:5px; padding:1px 5px; font-family:"Cascadia Mono",Consolas,monospace; font-size:13.5px; }
+pre { background:#12151c; color:#e8ecf4; border-radius:10px; padding:14px 16px; overflow-x:auto; }
+pre code { background:none; border:0; color:inherit; padding:0; font-size:13px; }
+table { border-collapse:collapse; width:100%; margin:12px 0; font-size:14.5px; }
+th, td { border:1px solid #e3e7ef; padding:8px 10px; text-align:left; vertical-align:top; }
+th { background:#f4f6fb; }
+blockquote { border-left:4px solid #4f8cff; background:#f4f7ff; margin:14px 0; padding:10px 16px; border-radius:0 8px 8px 0; }
+ul, ol { padding-left:22px; } li { margin:4px 0; }
+a { color:#2f6fe4; }
+hr { border:0; border-top:1px solid #eef1f6; margin:26px 0; }
+.lead { color:#5b6577; font-size:15px; margin-bottom:23px; }
+</style>
+</head>
+<body>
+<div class="page">
+<h1 id="forge-tasks">Служебное развёртывание Forge Tasks</h1>
+<p>Файл для владельца проекта: как поднять облако, бота и напоминания. Ключи и токены живут только
+в Supabase Secrets/Vault и настройках Telegram. Не помещайте их в приложение, SQL-файлы, GitHub или переписку.</p>
+<h2 id="1">1. База данных</h2>
+<p>Создайте <strong>отдельный</strong> проект Supabase (он не связан с LTT) и примените в SQL Editor:</p>
+<ol>
+<li><code>supabase/migrations/202610060001_tasks_core.sql</code> — профили, задачи, очередь напоминаний, повторения, привязка Telegram, RLS.</li>
+</ol>
+<p>Файл идемпотентен: повторный запуск ничего не ломает. Что он создаёт:</p>
+<ul>
+<li><code>profiles</code> — один профиль на пользователя Auth: часовой пояс, дайджест, роль;</li>
+<li><code>tasks</code> — задачи с дедлайном, набором напоминаний (<code>remind_offsets</code>) и повторением;</li>
+<li><code>task_reminders</code> — очередь уведомлений; её наполняет триггер, читает только серверный ключ;</li>
+<li><code>telegram_pairing_requests</code>, <code>telegram_accounts</code>, <code>telegram_input_sessions</code> — привязка Telegram и состояние диалога бота.</li>
+</ul>
+<p>Клиентам разрешены только собственные строки. Роль <code>owner</code> не даёт доступа к чужим задачам.</p>
+<h2 id="2-auth-edge-functions">2. Auth и Edge Functions</h2>
+<p>В Authentication включите провайдер <strong>Email/Password</strong> и проверьте отправку письма подтверждения.</p>
+<p>Разверните функции из <code>supabase/functions/</code>:</p>
+<ul>
+<li><code>telegram-bot</code> — webhook Telegram (команды, кнопки, быстрый ввод);</li>
+<li><code>link-telegram</code> — привязка аккаунта по одноразовому коду из приложения;</li>
+<li><code>send-reminders</code> — доставка напоминаний и утренних дайджестов;</li>
+<li><code>_shared/</code> — общие модули (разбор ввода и время), подтягиваются автоматически.</li>
+</ul>
+<p>В Edge Function Secrets задайте:</p>
+<ul>
+<li><code>TELEGRAM_BOT_TOKEN</code> — токен от BotFather;</li>
+<li><code>TELEGRAM_WEBHOOK_SECRET</code> — случайная строка для проверки webhook;</li>
+<li><code>OWNER_TELEGRAM_ID</code> — числовой Telegram ID владельца (команда <code>/myid</code> в боте);</li>
+<li><code>CRON_SECRET</code> — отдельная случайная строка для вызова <code>send-reminders</code> по расписанию.</li>
+</ul>
+<p>Серверный secret key нужен только функциям; в клиент попадает исключительно publishable key.</p>
+<p><code>notifications</code>, <code>backups</code> и прочие разделы настраивать не нужно. Резервное копирование базы — по желанию владельца.</p>
+<h2 id="3-telegram">3. Telegram</h2>
+<p>Установите webhook на URL функции:</p>
+<p><code>https://&lt;project-ref&gt;.supabase.co/functions/v1/telegram-bot</code></p>
+<p>Передайте тот же <code>TELEGRAM_WEBHOOK_SECRET</code> как Telegram <code>secret_token</code>. Не публикуйте полный URL запроса к Bot API: в нём содержится токен бота.</p>
+<p>Полезно сразу зарегистрировать список команд (подставьте токен только в своей консоли):</p>
+<pre><code class="language-bash">curl -X POST &quot;https://api.telegram.org/bot&lt;TOKEN&gt;/setMyCommands&quot; -H &quot;Content-Type: application/json&quot; \
+  -d '{&quot;commands&quot;:[
+    {&quot;command&quot;:&quot;today&quot;,&quot;description&quot;:&quot;Задачи на сегодня и просроченные&quot;},
+    {&quot;command&quot;:&quot;week&quot;,&quot;description&quot;:&quot;Ближайшие 7 дней&quot;},
+    {&quot;command&quot;:&quot;all&quot;,&quot;description&quot;:&quot;Все открытые задачи&quot;},
+    {&quot;command&quot;:&quot;add&quot;,&quot;description&quot;:&quot;Добавить задачу текстом&quot;},
+    {&quot;command&quot;:&quot;done&quot;,&quot;description&quot;:&quot;Закрыть задачу по ID&quot;},
+    {&quot;command&quot;:&quot;snooze&quot;,&quot;description&quot;:&quot;Перенести дедлайн&quot;},
+    {&quot;command&quot;:&quot;due&quot;,&quot;description&quot;:&quot;Задать срок вручную&quot;},
+    {&quot;command&quot;:&quot;delete&quot;,&quot;description&quot;:&quot;Удалить задачу&quot;},
+    {&quot;command&quot;:&quot;digest&quot;,&quot;description&quot;:&quot;Настроить утренний дайджест&quot;},
+    {&quot;command&quot;:&quot;settings&quot;,&quot;description&quot;:&quot;Часовой пояс и дайджест&quot;},
+    {&quot;command&quot;:&quot;cancel&quot;,&quot;description&quot;:&quot;Отменить ввод&quot;}
+  ]}'
+</code></pre>
+<p>Как это работает для пользователя: <code>/start</code> выдаёт одноразовый код (действует 10 минут), код вводится в приложении в разделе «Аккаунт». Привязка активируется автоматически. После этого любое текстовое сообщение — это задача:</p>
+<pre><code>оплатить хостинг завтра 18:30 !2 #работа за день
+позвонить врачу в пятницу в 10
+отчёт 06.11.2026 09:00 по будням за 2 часа
+</code></pre>
+<h2 id="4">4. Расписание напоминаний</h2>
+<p>Включите расширения <code>pg_cron</code>, <code>pg_net</code> и Vault. Сохраните <code>CRON_SECRET</code> в Vault под именем <code>forge_tasks_cron_secret</code>, затем выполните в SQL Editor:</p>
+<pre><code class="language-sql">select cron.schedule(
+  'forge-tasks-reminders',
+  '* * * * *',
+  $$
+    select net.http_post(
+      url := 'https://&lt;project-ref&gt;.supabase.co/functions/v1/send-reminders',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'x-cron-secret', (
+          select decrypted_secret from vault.decrypted_secrets
+          where name = 'forge_tasks_cron_secret' limit 1
+        )
+      ),
+      body := '{}'::jsonb
+    );
+  $$
+);
+</code></pre>
+<p>Перед повторной установкой удалите старое задание:</p>
+<pre><code class="language-sql">select cron.unschedule(jobid) from cron.job where jobname = 'forge-tasks-reminders';
+</code></pre>
+<p>Задание раз в минуту забирает созревшие напоминания (набор <code>remind_offsets</code> каждой задачи, плюс мягкая подсказка через 5 минут после дедлайна) и рассылает утренние дайджесты по времени из профиля пользователя. Правка срока или закрытие задачи автоматически отменяет несработавшие уведомления.</p>
+<h2 id="5">5. Клиентское приложение</h2>
+<p>Ключи не вшиты в установщик: их вводят в приложении в разделе <strong>Настройки → Облако и аккаунт</strong>:</p>
+<ul>
+<li>Supabase URL: <code>https://&lt;project-ref&gt;.supabase.co</code></li>
+<li>Publishable key (или legacy anon key): из Settings → API.</li>
+</ul>
+<p>Так один установщик годится и для локального режима, и для разных проектов.</p>
+<h2 id="6">6. Релиз</h2>
+<p>Репозиторий проекта — <code>https://github.com/AbobaCDA/LLTasker</code>; он указан в <code>package.json</code>:
+<code>build.publish.owner</code> = <code>AbobaCDA</code>, <code>build.publish.repo</code> = <code>LLTasker</code>. От этих полей зависят автообновление
+и адрес релизов — при переименовании репозитория их нужно поправить.
+Тег <code>vX.Y.Z</code> должен совпадать с <code>version</code> в <code>package.json</code>. Дальше GitHub Actions (<code>.github/workflows/release.yml</code>) на <code>windows-latest</code> собирает NSIS-установщик и публикует релиз с <code>latest.yml</code> и <code>.blockmap</code> — приложение обновляется через <code>electron-updater</code>.</p>
+<pre><code class="language-bash">npm version patch
+git push --follow-tags
+</code></pre>
+<p>Установщик не подписан сертификатом Authenticode: Windows покажет предупреждение SmartScreen. Проверка подписи обновлений в приложении отключена (<code>verifyUpdateCodeSignature: false</code>).</p>
+<h2 id="7">7. Проверка перед публикацией</h2>
+<ol>
+<li><code>npm ci &amp;&amp; npm test</code> — тесты схемы, разбора ввода, слияния данных и планировщика.</li>
+<li>Привяжите Telegram владельца первым: профиль должен получить роль <code>owner</code>, а <code>/stats</code> — работать только у него.</li>
+<li>Проверьте, что два аккаунта видят только свои задачи, а владелец не видит чужие.</li>
+<li>Заведите задачу с дедлайном через 2 минуты с напоминанием «за 5 минут» — проверьте доставку и что повторных сообщений нет.</li>
+<li>Настройте дайджест на ближайшее время и убедитесь, что он приходит один раз в сутки.</li>
+<li>Проверьте синхронизацию между двумя устройствами и оффлайн-правки: задача, изменённая без сети, должна уйти в облако после появления связи.</li>
+</ol>
+</div>
+</body>
+</html>

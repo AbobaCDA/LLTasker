@@ -4,4 +4,11 @@ dist/
 *.log
 .env
 .env.*
+
 tests/node_modules/
+
+# Внутренние документы: хранятся локально, в публичный репозиторий не попадают
+docs/
+SETUP-GUIDE.md
+DEPLOYMENT.md
+forge-tasks-docs/

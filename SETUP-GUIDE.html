@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Forge Tasks — настройка по шагам</title>
+<style>
+body { background:#f7f8fa; color:#1d2330; font:16px/1.6 "Segoe UI",system-ui,sans-serif; margin:0; padding:32px 16px; }
+.page { max-width:900px; margin:0 auto; background:#fff; border:1px solid #e3e7ef; border-radius:14px; padding:36px 44px; box-shadow:0 8px 30px rgba(20,30,60,.06); }
+h1 { font-size:30px; margin:0 0 6px; } h2 { font-size:22px; margin:34px 0 10px; padding-top:14px; border-top:1px solid #eef1f6; }
+h3 { font-size:17px; margin:22px 0 8px; } h4 { font-size:15px; margin:18px 0 6px; color:#4b5567; }
+code { background:#f1f4f9; border:1px solid #e3e7ef; border-radius:5px; padding:1px 5px; font-family:"Cascadia Mono",Consolas,monospace; font-size:13.5px; }
+pre { background:#12151c; color:#e8ecf4; border-radius:10px; padding:14px 16px; overflow-x:auto; }
+pre code { background:none; border:0; color:inherit; padding:0; font-size:13px; }
+table { border-collapse:collapse; width:100%; margin:12px 0; font-size:14.5px; }
+th, td { border:1px solid #e3e7ef; padding:8px 10px; text-align:left; vertical-align:top; }
+th { background:#f4f6fb; }
+blockquote { border-left:4px solid #4f8cff; background:#f4f7ff; margin:14px 0; padding:10px 16px; border-radius:0 8px 8px 0; }
+ul, ol { padding-left:22px; } li { margin:4px 0; }
+a { color:#2f6fe4; }
+hr { border:0; border-top:1px solid #eef1f6; margin:26px 0; }
+.lead { color:#5b6577; font-size:15px; margin-bottom:23px; }
+</style>
+</head>
+<body>
+<div class="page">
+<h1 id="forge-tasks">Forge Tasks — настройка по шагам</h1>
+<p><strong>Сейчас вы здесь:</strong> Часть 1 закрыта — релиз <code>v0.1.0</code> опубликован, установщик лежит в Releases.
+Следующий шаг — <strong>Часть 2 (Supabase)</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Часть</th>
+<th>Статус</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0. Подготовка (аккаунты, бот у BotFather)</td>
+<td>сделано</td>
+</tr>
+<tr>
+<td>1. Гит и первая сборка</td>
+<td>готово: релиз <code>v0.1.0</code> + установщик в Releases</td>
+</tr>
+<tr>
+<td>2. Supabase: база, функции, расписание</td>
+<td><strong>следующий шаг</strong></td>
+</tr>
+<tr>
+<td>3. Telegram: webhook, владелец, команды</td>
+<td>после части 2</td>
+</tr>
+<tr>
+<td>4. Приложение: облако, аккаунт, привязка бота</td>
+<td>после части 3</td>
+</tr>
+<tr>
+<td>5–7. Чек-лист, диагностика, планы по интерфейсу</td>
+<td>в конце</td>
+</tr>
+</tbody>
+</table>
+<p>Инструкция для владельца проекта: поднять репозиторий, Supabase и Telegram-бота. Делается один раз,
+занимает примерно 30–40 минут. После этого приложение работает с облаком и напоминаниями.</p>
+<p>Порядок такой: <strong>Гит → Supabase → Бот → приложение → проверки</strong>. Части 2 и 3 связаны одним токеном,
+поэтому в части 0 есть короткий шаг «создать бота» — это две минуты, зато дальше всё идёт по порядку.</p>
+<p>Везде, где нужны ключи и токены, используйте менеджер паролей. Не вставляйте их в код, в репозиторий,
+в переписку и в installer.</p>
+<hr />
+<h2 id="0">Часть 0. Что подготовить</h2>
+<ul>
+<li>[ ] <strong>0.1.</strong> Аккаунты: GitHub, Supabase, Telegram. Node.js LTS — с <a href="https://nodejs.org">nodejs.org</a> (нужен для локального запуска и сборки).</li>
+<li>[ ] <strong>0.2.</strong> Скачайте архив проекта <code>forge-tasks.zip</code> из воркспейса и распакуйте, например в <code>C:\dev\forge-tasks</code>.</li>
+<li>[ ] <strong>0.3.</strong> Проверьте, что внутри есть <code>package.json</code>, <code>desktop/</code>, <code>supabase/</code>, <code>task-manager.html</code>, <code>docs/</code>, <code>tests/</code>. Папки <code>node_modules</code> в архиве нет — это нормально.</li>
+<li>[ ] <strong>0.4.</strong> <strong>Создайте бота</strong> (2 минуты): в Telegram напишите <a href="https://t.me/BotFather">@BotFather</a> → <code>/newbot</code> → имя (например <code>Forge Tasks</code>) → username, заканчивающийся на <code>bot</code> (например <code>forge_tasks_bot</code>). BotFather выдаст токен вида <code>8012345678:AAH...</code> — сохраните его как <code>TELEGRAM_BOT_TOKEN</code>. Никому не пересылайте: по нему можно управлять ботом.</li>
+<li>[ ] <strong>0.5.</strong> Там же у BotFather (по желанию): <code>/setdescription</code> — описание, <code>/setuserpic</code> — аватарка. Список команд поставим позже, когда узнаем URL функции.</li>
+</ul>
+<hr />
+<h2 id="1">Часть 1. Гит: репозиторий и код</h2>
+<p>Проект из воркспейса нужно превратить в репозиторий, из которого потом собирается <code>.exe</code>.</p>
+<ul>
+<li>[ ] <strong>1.1.</strong> Создайте репозиторий: GitHub → <strong>New repository</strong> → имя <code>LLTasker</code> → <strong>Public</strong> → без README и .gitignore (они уже есть в проекте).
+  Почему public: автообновление в приложении скачивает релиз анонимно. С приватным репозиторием обновления не заработают без токена внутри приложения.</li>
+<li>
+<p>[ ] <strong>1.2.</strong> Проверьте, что репозиторий существует и запомните его точное имя: откройте
+  <a href="https://github.com/settings/profile">github.com/settings/profile</a> — поле <strong>Username</strong> (не «Name»:
+  оно может быть с пробелами и русскими буквами) — и список репозиториев
+  <a href="https://github.com">github.com</a> → «Your repositories».
+  Владелец проекта — <code>AbobaCDA</code>, репозиторий — <code>LLTasker</code>: <code>https://github.com/AbobaCDA/LLTasker.git</code>.</p>
+</li>
+<li>
+<p>[ ] <strong>1.3.</strong> Откройте терминал в папке проекта и инициализируйте репозиторий. Команды ниже работают и в CMD, и в PowerShell — логин вписывается прямо в адрес:</p>
+</li>
+</ul>
+<pre><code class="language-bash">cd C:\Users\Mike\Desktop\Tasker\forge-tasks
+
+git init
+git add .
+git commit -m &quot;Forge Tasks: каркас таск-трекера&quot;
+git branch -M main
+git remote add origin &quot;https://github.com/AbobaCDA/LLTasker.git&quot;   # имя репозитория — как на GitHub
+</code></pre>
+<blockquote>
+<p>Переменные у оболочек разные: <code>$login = "..."</code> понимает только PowerShell, в CMD будет ошибка
+«"$login" не является внутренней или внешней командой». Поэтому проще вписать логин в адрес.
+Если переменная всё же нужна — откройте PowerShell (<code>Win+X</code> → «Терминал») или наберите <code>powershell</code> прямо в CMD.</p>
+</blockquote>
+<ul>
+<li>[ ] <strong>1.3.1.</strong> Убедитесь, что в папке есть <code>package-lock.json</code> — файл со списком версий зависимостей:</li>
+</ul>
+<pre><code class="language-bash">dir package-lock.json
+</code></pre>
+<p>Он обязателен: сборка в GitHub Actions использует <code>npm ci</code>, который работает только при наличии этого файла,
+и без него workflow падает за 15–20 секунд. В архиве проекта файл есть; если его нет, создайте:</p>
+<pre><code class="language-bash">npm install --package-lock-only
+</code></pre>
+<ul>
+<li>[ ] <strong>1.4.</strong> Проверьте адрес перед отправкой — эта команда отличает «неправильный адрес» от «неправильной авторизации»:</li>
+</ul>
+<pre><code class="language-bash">git remote -v          # должно быть https://github.com/AbobaCDA/LLTasker.git для fetch и push
+git ls-remote origin   # пусто и без ошибки = репозиторий найден
+</code></pre>
+<blockquote>
+<p><strong>Важно про копирование.</strong> Адрес нельзя копировать из отформатированного текста (чат, просмотр документации):
+вместе с ним легко утащить markdown-разметку, и тогда в <code>git remote -v</code> появится
+<code>[https://github.com/AbobaCDA/LLTasker.git](https://github.com/AbobaCDA/LLTasker.git)</code> — со скобками.
+Git воспримет скобки как часть имени репозитория и ответит <code>Repository not found</code>.
+Набирайте адрес вручную или копируйте из адресной строки браузера на странице своего репозитория.
+Если разметка уже попала в remote — запустите <code>tools\fix-git-remote.cmd</code> или выполните:
+<code>git remote remove origin</code> и <code>git remote add origin https://github.com/AbobaCDA/LLTasker.git</code>.</p>
+</blockquote>
+<p>Если <code>git ls-remote</code> отвечает <code>Repository not found</code> — имя репозитория другое, либо он не создан (шаг 1.1). Если <code>origin</code> добавлен с ошибкой, исправьте адрес: <code>git remote set-url origin "https://github.com/AbobaCDA/LLTasker.git"</code>.</p>
+<ul>
+<li>[ ] <strong>1.5.</strong> Отправьте код:</li>
+</ul>
+<pre><code class="language-bash">git push -u origin main
+</code></pre>
+<ul>
+<li>[ ] <strong>1.6.</strong> Проверьте на GitHub, что код на месте. Вкладка <strong>Actions</strong> должна показать workflow «Build and publish Windows release» — он пока не запускается, это правильно: сборка идёт по тегу.</li>
+<li>[ ] <strong>1.7.</strong> Проверьте <code>package.json</code>, раздел <code>build.publish</code> — от него зависит адрес автообновления:</li>
+</ul>
+<pre><code class="language-json">&quot;publish&quot;: [
+  { &quot;provider&quot;: &quot;github&quot;, &quot;owner&quot;: &quot;AbobaCDA&quot;, &quot;repo&quot;: &quot;LLTasker&quot;, &quot;releaseType&quot;: &quot;release&quot; }
+]
+</code></pre>
+<p>Здесь всё уже верно: <code>owner</code> — <code>AbobaCDA</code>, <code>repo</code> — <code>LLTasker</code>. Менять ничего не нужно, если только вы не переименуете репозиторий на GitHub.</p>
+<pre><code class="language-powershell">На всякий случай сверьтесь со страницей репозитория: имя в адресной строке браузера и в поле `repo` должны совпадать.
+
+- [ ] **1.8.** Убедитесь, что репозиторий **публичный** — на его странице рядом с названием стоит «Public».
+  С приватным автообновление не работает: приложение скачивает релиз анонимно.
+  Сменить видимость: **Settings → General → внизу Danger Zone → Change repository visibility → Make public**.
+
+- [ ] **1.9.** Выпустите первую версию: тег должен точно совпадать с `version` в `package.json` (`0.1.0` → `v0.1.0`):
+
+```powershell
+git tag v0.1.0
+git push origin v0.1.0
+</code></pre>
+<ul>
+<li>[ ] <strong>1.10.</strong> Дождитесь сборки (5–10 минут, вкладка <strong>Actions</strong> → клик по запуску → логи). В конце в разделе <strong>Releases</strong> появится <code>Forge-Tasks-Setup-0.1.0.exe</code> и файлы <code>latest.yml</code>, <code>.blockmap</code> — по ним работает автообновление.</li>
+</ul>
+<p><strong>Если сборка упала.</strong> Откройте <strong>Actions</strong> → клик по запуску → слева задача <code>release</code> → раскрыть шаг
+с красным крестиком: там написана причина. Две самые частые:</p>
+<table>
+<thead>
+<tr>
+<th>Что в логе</th>
+<th>Причина</th>
+<th>Что делать</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Падение за 15–20 секунд, <code>Error: Dependencies lock file is not found in D:\a\…</code></td>
+<td>файла <code>package-lock.json</code> нет <strong>в том коммите, на который указывает тег</strong></td>
+<td>шаг «Как добавить lock-файл в репозиторий» ниже: создать файл, закоммитить, переставить тег</td>
+</tr>
+<tr>
+<td><code>npm ci can only install with an existing package-lock.json</code></td>
+<td>то же самое, но на шаге установки</td>
+<td>то же</td>
+</tr>
+<tr>
+<td><code>Тег v… не совпадает с версией …</code></td>
+<td>тег и <code>version</code> в <code>package.json</code> разошлись</td>
+<td>удалите тег и создайте заново на нужной версии (команды ниже)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Как добавить lock-файл в репозиторий.</strong> Важно: тег указывает на конкретный коммит, поэтому файл
+нужно не просто создать, а закоммитить <strong>до</strong> тега. Проверьте три вещи:</p>
+<pre><code class="language-bash">dir package-lock.json            # 1. файл создан локально? Если нет — npm install --package-lock-only
+git ls-files package-lock.json   # 2. файл отслеживается гитом? Пустой вывод = нет, нужно git add
+git log --oneline -1 v0.1.0      # 3. на каком коммите стоит тег (hash сравните с git log -1)
+</code></pre>
+<p>Затем коммит и отправка:</p>
+<pre><code class="language-bash">git add -A
+git status                       # в списке должен быть package-lock.json
+git commit -m &quot;Добавляю package-lock.json&quot;
+git push
+</code></pre>
+<p><strong>Перезапуск сборки после правок</strong> — теги неизменяемы, поэтому старый удаляем и ставим заново:</p>
+<pre><code class="language-bash">git add -A
+git commit -m &quot;Правки перед сборкой&quot;
+git push
+
+git push origin :refs/tags/v0.1.0   # удаляем старый тег на GitHub
+git tag -d v0.1.0 2&gt;$null || true   # и локально (в CMD: git tag -d v0.1.0)
+git tag v0.1.0
+git push origin v0.1.0              # запускает сборку заново
+</code></pre>
+<p>Альтернатива без тегов: <strong>Actions → Build and publish Windows release → Run workflow</strong>. Этот запуск идёт
+без проверки тега, но публикация релиза ориентируется на версию из <code>package.json</code>, поэтому такой способ
+годится для проверки, что сборка вообще проходит, а не для выпуска релиза.</p>
+<p><strong>Как читать лог сборки.</strong> Шаги по порядку и что они значат:</p>
+<ol>
+<li><code>Install dependencies</code> — установка пакетов;</li>
+<li><code>Run tests</code> — 151 проверка; красный означает проблему в коде, а не в окружении;</li>
+<li><code>Build NSIS package</code> — сборка установщика (здесь ошибки electron-builder, например про права);</li>
+<li><code>Upload build artifacts to the run</code> — собранные файлы прикладываются к запуску, их можно скачать даже без релиза;</li>
+<li><code>Publish release</code> — публикация во вкладке Releases через <code>gh</code>.</li>
+</ol>
+<p>Если шаг 3 или 5 упал, файлы всё равно лежат в артефактах запуска (шаг 4). Скачайте оттуда <code>.exe</code> и <code>latest.yml</code>
+и приложите к релизу вручную: <strong>Releases → Draft a new release</strong> → тег <code>v0.1.0</code> → загрузить файлы.</p>
+<p><strong>Проверка части 1:</strong> в Releases лежит <code>Forge-Tasks-Setup-0.1.0.exe</code>. Пока без Supabase приложение запустится и будет работать локально — это нормальный промежуточный результат.</p>
+<blockquote>
+<p>Дальше версии выпускаются так: <code>npm version patch</code> → <code>git push --follow-tags</code> → подождать сборку. Если тег не совпадёт с версией, workflow упадёт с явной ошибкой.</p>
+</blockquote>
+<hr />
+<h3 id="_1">Как проверить, что репозиторий чистый</h3>
+<p>Чистка выполнена коммитом <code>439fe21</code> («Чищу репозиторий»): из репозитория удалены 34 файла —
+папка <code>docs/</code> с этим документом и вложенная копия проекта <code>forge-tasks/</code>.</p>
+<p>Проверить можно двумя ссылками:</p>
+<ol>
+<li><code>https://github.com/AbobaCDA/LLTasker</code> — в корне должно быть ровно это:
+   <code>.gitattributes</code>, <code>.github/</code>, <code>.gitignore</code>, <code>README.md</code>, <code>assets/</code>, <code>desktop/</code>, <code>package-lock.json</code>,
+   <code>package.json</code>, <code>supabase/</code>, <code>task-manager.html</code>, <code>tests/</code>, <code>tools/</code>. Папок <code>docs/</code> и <code>forge-tasks/</code> нет.</li>
+<li><code>https://github.com/AbobaCDA/LLTasker/commit/439fe21c54</code> — коммит с удалением: 34 файла, все со статусом «removed».</li>
+</ol>
+<p><strong>Если всё равно видите старую картину</strong> — почти всегда одно из трёх:</p>
+<table>
+<thead>
+<tr>
+<th>Что происходит</th>
+<th>Причина</th>
+<th>Что сделать</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>По ссылке репозитория видны <code>docs/</code> и <code>forge-tasks/</code></td>
+<td>станица открыта из кеша браузера</td>
+<td>нажать <code>Ctrl+F5</code> (жёсткое обновление) или открыть в режиме инкогнито</td>
+</tr>
+<tr>
+<td>Видны старые файлы, хотя кеш обновлён</td>
+<td>в переключателе ветки выбран тег <code>v0.1.0</code>, а не ветка <code>main</code></td>
+<td>на странице репозитория слева вверху нажать на выпадающий список и выбрать <strong>main</strong>. Тег — это «фотография» старого коммита, там файлы остаются навсегда</td>
+</tr>
+<tr>
+<td>Видны <code>docs/</code> в списке коммитов</td>
+<td>история: удаление происходит новым коммитом, старые коммиты сохраняют прежнее содержимое</td>
+<td>это нормально; в актуальной версии (<code>main</code>) документов нет</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Остатки.</strong> В корне остался один служебный файл с именем <code>$null</code> — он появился, когда в CMD выполнили
+PowerShell-команду <code>2&gt;$null</code> (перенаправление в «никуда»). Убирается так:</p>
+<pre><code class="language-cmd">cd C:\Users\Mike\Desktop\Tasker\forge-tasks
+git ls-files | findstr /C:&quot;null&quot;
+git rm -f -- &quot;*null*&quot;
+git commit -m &quot;Убираю служебный файл null&quot;
+git push
+</code></pre>
+<p>Если <code>git rm</code> отработал молча и файл остался — значит образец не совпал. В этом случае посмотрите
+точное имя командой <code>git ls-files</code> и повторите, набрав имя вручную (кавычки должны быть обычные, <code>"</code>,
+а не «ёлочки»: при копировании из чата они иногда превращаются в типографские, и тогда команда
+молча ничего не делает).</p>
+<hr />
+<h2 id="2-supabase">Часть 2. Supabase: база, функции, расписание</h2>
+<h3 id="2a">2.A Проект и схема</h3>
+<ul>
+<li>[ ] <strong>2.1.</strong> На <a href="https://supabase.com">supabase.com</a> → <strong>New project</strong>. Имя <code>forge-tasks</code>, регион ближе к вам (для РФ удобно Frankfurt / eu-central-1). Пароль базы сохраните в менеджер паролей — он больше нигде не понадобится, но пусть будет.</li>
+<li>[ ] <strong>2.2.</strong> Дождитесь «Project is ready» (1–2 минуты). Скопируйте <strong>Project ref</strong>: <strong>Project Settings → General → Reference ID</strong> (выглядит как <code>abcdwxyzabcdwxyz</code>). Он входит в адрес функции: <code>https://&lt;ref&gt;.supabase.co/functions/v1/...</code>.</li>
+<li>[ ] <strong>2.3.</strong> Примените схему: <strong>SQL Editor → New query</strong> → откройте файл <code>supabase/migrations/202610060001_tasks_core.sql</code> из проекта, скопируйте его целиком, вставьте и нажмите <strong>Run</strong>. Должно быть «Success. No rows returned».</li>
+<li>[ ] <strong>2.4.</strong> Проверьте схему: откройте <code>supabase/verify.sql</code>, выполните оттуда <strong>блок 1</strong> — все значения должны быть <code>true</code>, триггеров на <code>tasks</code> — пять.</li>
+</ul>
+<blockquote>
+<p>Файл миграции можно запускать повторно: он написан идемпотентно. Если что-то пошло не так — просто запустите ещё раз.</p>
+</blockquote>
+<h3 id="2b">2.B Вход и ключи</h3>
+<ul>
+<li>[ ] <strong>2.5.</strong> Настройте вход по e-mail: <strong>Authentication → Providers → Email</strong> — провайдер включён, «Confirm email» по умолчанию включён.
+  Для личного трекера подтверждение письмом часто мешает: бесплатный SMTP Supabase режет отправку (несколько писем в час), и вы упрётесь в лимит. Решение: либо оставьте подтверждение, либо отключите «Confirm email» — тогда после регистрации вход произойдёт сразу.</li>
+<li>[ ] <strong>2.6.</strong> Скопируйте <strong>publishable key</strong>: <strong>Project Settings → API Keys → Publishable key</strong> (<code>sb_publishable_...</code>). Он нужен приложению. Если видите только legacy-ключи — возьмите <code>anon</code> из раздела Legacy API keys, он тоже подходит.
+  <strong>Secret key (и старый <code>service_role</code>) в приложение не попадают никогда</strong> — он нужен только Edge Functions.</li>
+</ul>
+<h3 id="2c-edge-functions">2.C Edge Functions</h3>
+<ul>
+<li>[ ] <strong>2.7.</strong> Секреты функций: <strong>Project Settings → Edge Functions → Secrets</strong> (в некоторых версиях интерфейса — <strong>Edge Functions → Secrets</strong>) → <strong>Add new secret</strong>. Добавьте три:</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Имя</th>
+<th>Значение</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TELEGRAM_BOT_TOKEN</code></td>
+<td>токен из шага 0.4</td>
+</tr>
+<tr>
+<td><code>TELEGRAM_WEBHOOK_SECRET</code></td>
+<td>случайная строка, 32+ символа (см. генератор ниже)</td>
+</tr>
+<tr>
+<td><code>CRON_SECRET</code></td>
+<td><strong>другая</strong> случайная строка</td>
+</tr>
+</tbody>
+</table>
+<p><code>OWNER_TELEGRAM_ID</code> добавим в части 3 — он станет известен только после запуска бота. Значения <code>SUPABASE_URL</code> и серверный ключ подставляются платформой автоматически.</p>
+<p>Случайная строка в PowerShell:</p>
+<pre><code class="language-powershell">-join ((48..57) + (65..90) + (97..122) | Get-Random -Count 48 | ForEach-Object { [char]$_ })
+</code></pre>
+<ul>
+<li>[ ] <strong>2.8.</strong> Поставьте Supabase CLI. Глобальная установка <code>npm install -g supabase</code> больше не поддерживается. Два рабочих варианта:</li>
+</ul>
+<pre><code class="language-powershell"># Вариант А (проще): CLI как dev-зависимость проекта, запуск через npx. Нужен Node.js 20+.
+cd C:\dev\forge-tasks
+npm install supabase --save-dev
+npx supabase --version
+</code></pre>
+<pre><code class="language-powershell"># Вариант Б: системная установка через scoop — команда supabase будет доступна везде
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+iwr -useb get.scoop.sh | iex
+scoop bucket add supabase https://github.com/supabase/scoop-bucket.git
+scoop install supabase
+supabase --version
+</code></pre>
+<p>Дальше в инструкции команды записаны как <code>supabase ...</code>. Если выбрали вариант А — подставляйте <code>npx supabase ...</code>.</p>
+<ul>
+<li>[ ] <strong>2.9.</strong> Войдите в CLI и привяжите проект (команды выполняются в папке <code>C:\dev\forge-tasks</code>, где лежит <code>supabase/config.toml</code>):</li>
+</ul>
+<pre><code class="language-powershell">supabase login
+supabase link --project-ref ВАШ_PROJECT_REF
+</code></pre>
+<p><code>supabase login</code> откроет браузер и запросит персональный токен с <a href="https://supabase.com/dashboard/account/tokens">supabase.com/dashboard/account/tokens</a> — создайте и вставьте.</p>
+<ul>
+<li>[ ] <strong>2.10.</strong> Разверните все три функции одной командой:</li>
+</ul>
+<pre><code class="language-powershell">supabase functions deploy
+</code></pre>
+<p>Файл <code>supabase/config.toml</code> уже описывает, что <code>telegram-bot</code> и <code>send-reminders</code> работают без JWT (их вызывает Telegram и cron), а <code>link-telegram</code> требует JWT пользователя. Отдельные функции можно деплоить поимённо: <code>supabase functions deploy telegram-bot</code>.</p>
+<ul>
+<li>[ ] <strong>2.11.</strong> Проверьте, что функции живые: <strong>Edge Functions</strong> в дашборде — три функции со свежей датой деплоя; в логах — сразу после развёртывания, при первом вызове, появятся записи.</li>
+</ul>
+<h3 id="2d">2.D Расписание напоминаний</h3>
+<ul>
+<li>[ ] <strong>2.12.</strong> Включите расширения: <strong>Database → Extensions</strong> → найдите и включите <code>pg_cron</code>, <code>pg_net</code>. Vault обычно уже включён; если нет — включите и его.</li>
+<li>[ ] <strong>2.13.</strong> Положите <code>CRON_SECRET</code> в Vault: <strong>SQL Editor → New query</strong> (подставьте своё значение вместо <code>&lt;CRON_SECRET&gt;</code> и свой project-ref):</li>
+</ul>
+<pre><code class="language-sql">select vault.create_secret('&lt;CRON_SECRET&gt;', 'forge_tasks_cron_secret', 'секрет для задания pg_cron');
+</code></pre>
+<ul>
+<li>[ ] <strong>2.14.</strong> Создайте задание «раз в минуту»: тот же SQL Editor, подставьте свой project-ref:</li>
+</ul>
+<pre><code class="language-sql">select cron.schedule(
+  'forge-tasks-reminders',
+  '* * * * *',
+  $$
+    select net.http_post(
+      url := 'https://ВАШ_PROJECT_REF.supabase.co/functions/v1/send-reminders',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'x-cron-secret', (
+          select decrypted_secret from vault.decrypted_secrets
+          where name = 'forge_tasks_cron_secret' limit 1
+        )
+      ),
+      body := '{}'::jsonb
+    );
+  $$
+);
+</code></pre>
+<p>Если SQL неудобен, то же самое делается мышкой: <strong>Integrations → Cron → Create job</strong> → тип «Edge Function»/HTTP → функция <code>send-reminders</code>, метод <code>POST</code>, расписание <code>* * * * *</code>, и заголовок <code>x-cron-secret</code> = ваш секрет (если в интерфейсе нет поля для заголовка — используйте SQL выше).</p>
+<ul>
+<li>[ ] <strong>2.15.</strong> Проверьте расписание: через 2–3 минуты выполните <strong>блок 6</strong> из <code>supabase/verify.sql</code>. Ожидается <code>status = succeeded</code> и ответ <code>{"ok":true,...}</code> каждую минуту. Если <code>failed</code> — смотрите <code>return_message</code>: чаще всего не совпадает <code>CRON_SECRET</code> в Vault и в Edge Secrets.</li>
+</ul>
+<blockquote>
+<p>Задание можно ставить повторно: сначала удалите старое — <code>select cron.unschedule(jobid) from cron.job where jobname = 'forge-tasks-reminders';</code></p>
+</blockquote>
+<hr />
+<h2 id="3-telegram-webhook">Часть 3. Telegram: webhook, владелец, команды</h2>
+<blockquote>
+<p>Команды этой части — для <strong>PowerShell</strong>, а не CMD: в CMD не работает <code>Invoke-RestMethod</code>.
+Открыть PowerShell: <code>Win+X</code> → «Терминал», либо набрать <code>powershell</code> в уже открытом CMD.</p>
+</blockquote>
+<ul>
+<li>[ ] <strong>3.1.</strong> Поставьте webhook. В PowerShell подставьте токен бота, свой project-ref и то же значение <code>TELEGRAM_WEBHOOK_SECRET</code>, что лежит в Edge Secrets:</li>
+</ul>
+<pre><code class="language-powershell">$token  = &quot;ТОКЕН_ИЗ_BOTFATHER&quot;
+$secret = &quot;ВАШ_TELEGRAM_WEBHOOK_SECRET&quot;
+$url    = &quot;https://ВАШ_PROJECT_REF.supabase.co/functions/v1/telegram-bot&quot;
+
+Invoke-RestMethod -Method Post -Uri &quot;https://api.telegram.org/bot$token/setWebhook&quot; `
+  -ContentType &quot;application/json&quot; `
+  -Body (@{ url = $url; secret_token = $secret; allowed_updates = @('message','callback_query') } | ConvertTo-Json)
+</code></pre>
+<ul>
+<li>[ ] <strong>3.2.</strong> Проверьте webhook:</li>
+</ul>
+<pre><code class="language-powershell">Invoke-RestMethod &quot;https://api.telegram.org/bot$token/getWebhookInfo&quot; | ConvertTo-Json -Depth 4
+</code></pre>
+<p>Ожидаемо: <code>url</code> = адрес функции, <code>pending_update_count</code> = 0, <code>last_error_message</code> отсутствует. Если есть ошибка — обычно это несовпадение <code>secret_token</code> (тогда Telegram получает 401 и пишет про него в <code>last_error_message</code>).</p>
+<ul>
+<li>[ ] <strong>3.3.</strong> Напишите боту <code>/myid</code> — он ответит числовым ID. Это ваш Telegram ID.</li>
+<li>[ ] <strong>3.4.</strong> Добавьте его в Edge Secrets под именем <code>OWNER_TELEGRAM_ID</code> (значение — только цифры, без @ и кавычек). Передеплой не нужен: функции читают секреты при следующем вызове.</li>
+<li>[ ] <strong>3.5.</strong> Поставьте список команд. Подставьте токен и project-ref:</li>
+</ul>
+<pre><code class="language-powershell">$body = @{
+  commands = @(
+    @{ command = 'today';    description = 'Задачи на сегодня и просроченные' }
+    @{ command = 'week';     description = 'Ближайшие 7 дней' }
+    @{ command = 'all';      description = 'Все открытые задачи' }
+    @{ command = 'add';      description = 'Добавить задачу текстом' }
+    @{ command = 'done';     description = 'Закрыть задачу по ID' }
+    @{ command = 'snooze';   description = 'Перенести дедлайн' }
+    @{ command = 'due';      description = 'Задать срок вручную' }
+    @{ command = 'delete';   description = 'Удалить задачу' }
+    @{ command = 'digest';   description = 'Утренний дайджест: время или off' }
+    @{ command = 'settings'; description = 'Часовой пояс и дайджест' }
+    @{ command = 'cancel';   description = 'Отменить ввод' }
+  )
+} | ConvertTo-Json -Depth 4
+
+Invoke-RestMethod -Method Post -Uri &quot;https://api.telegram.org/bot$token/setMyCommands&quot; `
+  -ContentType &quot;application/json; charset=utf-8&quot; `
+  -Body ([System.Text.Encoding]::UTF8.GetBytes($body))
+</code></pre>
+<ul>
+<li>[ ] <strong>3.6.</strong> Проверка: <code>/start</code> в боте должен ответить кодом привязки из 10 символов и подсказкой ввести его в приложении. Пока аккаунт не привязан, остальные команды ответят «Сначала отправь /start…».</li>
+</ul>
+<blockquote>
+<p>Команда <code>/stats</code> (сводка по проекту) работает только у владельца — то есть у аккаунта, чей Telegram ID указан в <code>OWNER_TELEGRAM_ID</code>.</p>
+</blockquote>
+<hr />
+<h2 id="4">Часть 4. Приложение</h2>
+<ul>
+<li>[ ] <strong>4.1.</strong> Установите <code>Forge-Tasks-Setup-0.1.0.exe</code> из Releases. SmartScreen предупредит (установщик не подписан сертификатом) — «Подробнее» → «Выполнить в любом случае». Для разработки можно запускать из папки проекта: <code>npm ci</code> → <code>npm start</code>.</li>
+<li>[ ] <strong>4.2.</strong> Откройте <strong>Настройки и аккаунт → Облако и аккаунт</strong> и вставьте <code>Supabase URL</code> (<code>https://&lt;ref&gt;.supabase.co</code>) и <code>publishable key</code> из шага 2.6 → <strong>Сохранить параметры облака</strong>.</li>
+<li>[ ] <strong>4.3.</strong> Зарегистрируйтесь: e-mail и пароль (минимум 6 символов) → <strong>Создать аккаунт</strong>. Если подтверждение включено — откройте письмо и перейдите по ссылке.</li>
+<li>[ ] <strong>4.4.</strong> Привяжите Telegram: в боте <code>/start</code> → получите код → в приложении введите его в поле «Код привязки Telegram» → <strong>Привязать Telegram</strong>. В бот придёт подтверждение «Аккаунт привязан».
+  Этот шаг не только для напоминаний: он активирует профиль (<code>access_status = active</code>), без которого база не даёт записывать задачи.</li>
+<li>[ ] <strong>4.5.</strong> Проверьте синхронизацию: добавьте задачу строкой сверху (например <code>проверить синхронизацию завтра 12:00</code>) → нажмите <strong>Синхронизировать</strong>. В Supabase → <strong>Table Editor → tasks</strong> должна появиться строка. В боте <code>/today</code> покажет ту же задачу.</li>
+<li>[ ] <strong>4.6.</strong> Проверьте напоминания Windows: создайте задачу со сроком через 3 минуты и напоминанием «за 5 мин» (строка вида <code>тест напоминания в 14:35 за 5 минут</code>). Свернуть окно в трей — уведомление должно всплыть в назначенную минуту.</li>
+<li>[ ] <strong>4.7.</strong> Проверьте напоминания Telegram: создайте задачу со сроком через 3 минуты. Сообщение придёт в течение минуты после наступления момента — и только одно.</li>
+<li>[ ] <strong>4.8.</strong> Проверьте дайджест: в боте <code>/digest 12:30</code> (ближайшее время) и задача на сегодня → в указанную минуту придёт сводка «Задачи на сегодня». Отключается командой <code>/digest off</code>.</li>
+<li>[ ] <strong>4.9.</strong> Включите <strong>Запускать с Windows</strong> и закройте окно крестиком — приложение останется в трее, напоминания продолжат работать. Выход — через меню значка в трее.</li>
+</ul>
+<hr />
+<h2 id="5-">Часть 5. Приёмочный чек-лист</h2>
+<table>
+<thead>
+<tr>
+<th>Проверка</th>
+<th>Ожидаемо</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>verify.sql</code>, блок 1</td>
+<td>все <code>true</code>, триггеров 5, RLS включён</td>
+</tr>
+<tr>
+<td><code>verify.sql</code>, блок 5</td>
+<td>задание <code>forge-tasks-reminders</code>, <code>* * * * *</code>, active</td>
+</tr>
+<tr>
+<td><code>verify.sql</code>, блок 6</td>
+<td>каждую минуту <code>succeeded</code> и <code>{"ok":true,…}</code></td>
+</tr>
+<tr>
+<td><code>/start</code> в боте</td>
+<td>код из 10 символов</td>
+</tr>
+<tr>
+<td>Код введён в приложении</td>
+<td>в боте подтверждение, профиль активен</td>
+</tr>
+<tr>
+<td>Задача из приложения</td>
+<td>появляется в Table Editor и в <code>/today</code></td>
+</tr>
+<tr>
+<td>Задача из бота</td>
+<td>появляется в приложении после синхронизации (в течение минуты)</td>
+</tr>
+<tr>
+<td>Смена дедлайна</td>
+<td>старая очередь напоминаний отменена, новая построена</td>
+</tr>
+<tr>
+<td>Закрытие задачи</td>
+<td>напоминания исчезли, у повторяющейся появилось следующее вхождение</td>
+</tr>
+<tr>
+<td>Два устройства</td>
+<td>правки сходятся, ничего не теряется</td>
+</tr>
+<tr>
+<td>Задача, закрытая в боте</td>
+<td>пропадает из списка в приложении</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="6-">Часть 6. Если что-то не работает</h2>
+<table>
+<thead>
+<tr>
+<th>Симптом</th>
+<th>Причина и что делать</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>В приложении «Локальный режим»</td>
+<td>не заполнены Supabase URL / publishable key, либо нажато «Сохранить параметры облака» без них</td>
+</tr>
+<tr>
+<td>Ошибка записи задач, RLS</td>
+<td>профиль не активен: привяжите Telegram (шаг 4.4). Проверьте блок 4 в <code>verify.sql</code>: <code>access_status</code> должен быть <code>active</code></td>
+</tr>
+<tr>
+<td>Письмо подтверждения не приходит</td>
+<td>исчерпан лимит бесплатного SMTP. Отключите «Confirm email» (шаг 2.5) или подождите час</td>
+</tr>
+<tr>
+<td>Бот молчит</td>
+<td>выполните шаг 3.2: если в <code>last_error_message</code> ошибка, переставьте webhook с тем же <code>secret_token</code>, что в Edge Secrets</td>
+</tr>
+<tr>
+<td>Функция отвечает <code>401</code>/<code>Unauthorized</code></td>
+<td><code>verify_jwt</code> не отключён: деплойте командой <code>supabase functions deploy</code> из корня проекта (там, где <code>supabase/config.toml</code>)</td>
+</tr>
+<tr>
+<td>Cron пишет <code>failed</code></td>
+<td><code>CRON_SECRET</code> в Vault не совпадает с Edge Secret, либо в URL задания чужой project-ref. Пересоздайте задание (шаг 2.14)</td>
+</tr>
+<tr>
+<td>Напоминания приходят дважды</td>
+<td>в <code>cron.job</code> больше одного задания с этим именем: удалите лишние и создайте одно</td>
+</tr>
+<tr>
+<td>Уведомления Windows не появляются</td>
+<td>в настройках приложения режим уведомлений не должен быть «Только Telegram»; проверьте, что приложение запущено (значок в трее)</td>
+</tr>
+<tr>
+<td>Время напоминаний сдвинуто</td>
+<td>проверьте часовой пояс: <strong>Настройки → Расписание → Часовой пояс</strong> (он же уходит в облако и определяет дайджест)</td>
+</tr>
+<tr>
+<td>В логе <code>electron-builder version=26.5.0</code> вместо <code>26.15.3</code></td>
+<td>сработал <code>npm audit fix --force</code>, он понижает сборщик. Запустите <code>tools\fix-package-json.cmd</code> — скрипт вернёт версии и переустановит зависимости</td>
+</tr>
+<tr>
+<td><code>npm ls electron-builder</code> показывает старую версию после правки <code>package.json</code></td>
+<td>команда смотрит в <code>node_modules</code>, а не в файл: нужен <code>npm install</code> после правки. Проверить сам файл: <code>node -p "require('./package.json').devDependencies['electron-builder']"</code></td>
+</tr>
+<tr>
+<td>Не нахожу нужные строки в <code>package.json</code></td>
+<td>скорее всего архив распаковался во вложенную папку (<code>forge-tasks\forge-tasks\</code>). Проверьте: <code>dir /b</code> — если внутри видна папка <code>forge-tasks</code>, перенесите её содержимое на уровень выше. Найти маркер в файле: <code>findstr /C:"LLTasker" package.json</code></td>
+</tr>
+<tr>
+<td>Сборка падает за 15–20 секунд, <code>Dependencies lock file is not found</code></td>
+<td>нет <code>package-lock.json</code> в коммите под тегом: создайте файл, закоммитьте, пересоздайте тег</td>
+</tr>
+<tr>
+<td>В логе <code>Implicit publishing triggered by git tag</code> и <code>GitHub Personal Access Token is not set</code></td>
+<td>electron-builder сам включил публикацию из-за тега. В скрипте <code>dist:win</code> должен стоять флаг <code>--publish never</code> (в актуальной версии проекта он есть)</td>
+</tr>
+<tr>
+<td>В логе <code>• publishing publisher=Github (owner: X, project: Y)</code> и затем <code>404 Not Found</code> на <code>api.github.com/repos/X/Y/releases</code></td>
+<td>в <code>package.json</code> (<code>build.publish.repo</code>) указан не тот репозиторий, куда вы пушите. Должно быть <code>owner: AbobaCDA</code>, <code>repo: LLTasker</code> — сверьте со страницей репозитория</td>
+</tr>
+<tr>
+<td>Сборка дошла до публикации и упала с трейсом <code>PublishManager.awaitTasks</code></td>
+<td>у встроенного публикатора electron-builder нет прав или релиз с этим тегом уже существует. Обновите workflow: публикация идёт через <code>gh release</code></td>
+</tr>
+<tr>
+<td>В логе публикации <code>403 Forbidden</code> / <code>Resource not accessible by integration</code></td>
+<td>у токена нет прав на запись: в workflow нужен блок <code>permissions: contents: write</code> (есть в актуальной версии файла)</td>
+</tr>
+<tr>
+<td>В логе публикации <code>422 Validation Failed</code> / <code>already_exists</code></td>
+<td>релиз с тегом уже создан (в том числе пустой от прошлой попытки). Новый workflow обновит существующий релиз через <code>gh release upload --clobber</code></td>
+</tr>
+<tr>
+<td>Релиз опубликован, но файлов в нём нет</td>
+<td>смотрите артефакты запуска: <strong>Actions → запуск → Artifacts → forge-tasks-…</strong> — там лежат <code>.exe</code>, <code>latest.yml</code>, <code>.blockmap</code>; их можно приложить к релизу вручную</td>
+</tr>
+<tr>
+<td>Сборка падает на шаге сборки с 404 при публикации</td>
+<td><code>build.publish.repo</code> в <code>package.json</code> не совпадает с именем репозитория на GitHub (должно быть <code>LLTasker</code>)</td>
+</tr>
+<tr>
+<td>Автообновление не находит версию</td>
+<td><code>build.publish.repo</code> в <code>package.json</code> не совпадает с именем репозитория, либо репозиторий приватный</td>
+</tr>
+<tr>
+<td><code>git push</code> пишет <code>Repository not found</code></td>
+<td>в адресе remote мусор (скобки, кавычки, плейсхолдер) или репозиторий ещё не создан: <code>git remote -v</code> покажет реальный адрес; исправляется через <code>git remote set-url origin "https://github.com/AbobaCDA/LLTasker.git"</code></td>
+</tr>
+<tr>
+<td><code>git push</code> просит пароль</td>
+<td>GitHub не принимает пароль аккаунта. Создайте токен: <a href="https://github.com/settings/tokens">github.com/settings/tokens</a> → Generate new token (classic) → scope <code>repo</code> → вставьте его вместо пароля. Обычно на Windows достаточно войти в открывшемся окне браузера</td>
+</tr>
+<tr>
+<td><code>git push</code> отклонён: <code>rejected non-fast-forward</code></td>
+<td>при создании репозитория добавили README. Выполните <code>git pull --rebase origin main</code>, затем <code>git push -u origin main</code></td>
+</tr>
+<tr>
+<td><code>supabase: command not found</code></td>
+<td>CLI не установлен: шаг 2.8, либо используйте <code>npx supabase</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="7">Часть 7. Что дальше</h2>
+<p>Порядок, в котором предлагаю дорабатывать:</p>
+<ol>
+<li><strong>Интерфейс.</strong> Это главное: сейчас это аккуратная, но «инженерная» заготовка. Нужно решить, как должен выглядеть ваш трекер: оставить тёмную тему или сделать светлую; плотные строки или просторные карточки; нужны ли боковые колонки; какие шрифты и акценты. Самый быстрый путь — пришлите 1–2 скриншота или ссылки на референсы (Todoist, TickTick, Things, Linear, что нравится) и список того, что раздражает в текущем виде. Соберу на этом основе новый интерфейс.</li>
+<li><strong>Календарь на неделю.</strong> Сетка «пн–вс» с задачами по дням, перетаскивание задачи на другой день.</li>
+<li><strong>Drag &amp; drop сортировка.</strong> Ручной порядок внутри дня (<code>sort_order</code> в схеме уже есть), приоритет над автоматической сортировкой по сроку.</li>
+<li><strong>Подзадачи.</strong> Нужно решить, как их хранить: как отдельные задачи со ссылкой на родителя (проще и работает в боте) или как чек-лист внутри задачи (компактнее в интерфейсе). От этого зависит миграция.</li>
+<li><strong>Мелочи по ходу:</strong> шаблоны задач, массовые операции, статистика, поиск в боте.</li>
+</ol>
+</div>
+</body>
+</html>
