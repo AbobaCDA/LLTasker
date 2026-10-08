@@ -1,7 +1,11 @@
 // Главный процесс LLTasker: окно, трей, автозапуск, автообновление,
 // локальные напоминания Windows и синхронизация с облаком.
 import { app, BrowserWindow, Menu, Notification, Tray, ipcMain, nativeImage, shell } from 'electron';
-import { autoUpdater } from 'electron-updater';
+// electron-updater — CommonJS-пакет: именованный импорт { autoUpdater } падает в ESM,
+// поэтому берём default-экспорт и достаём autoUpdater из него.
+import electronUpdater from 'electron-updater';
+
+const { autoUpdater } = electronUpdater;
 import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
