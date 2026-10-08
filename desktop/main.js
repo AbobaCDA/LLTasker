@@ -1,12 +1,13 @@
 // Главный процесс LLTasker: окно, трей, автозапуск, автообновление,
 // локальные напоминания Windows и синхронизация с облаком.
-import { app, BrowserWindow, Menu, Notification, Tray, ipcMain, nativeImage, shell } from 'electron';
+import { app, BrowserWindow, Menu, Notification, Tray, dialog, ipcMain, nativeImage, shell } from 'electron';
 // electron-updater — CommonJS-пакет: именованный импорт { autoUpdater } падает в ESM,
 // поэтому берём default-экспорт и достаём autoUpdater из него.
 import electronUpdater from 'electron-updater';
 
 const { autoUpdater } = electronUpdater;
-import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, unlinkSync } from 'node:fs';
+import { extname } from 'node:path';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { addLocalDays, formatDue, localDateString } from '../supabase/functions/_shared/time.js';
@@ -60,6 +61,28 @@ let updateState = { status: 'idle', version: null, error: '' };
 
 function settings() {
   return store.read().settings;
+}
+
+/** Файл картинки → data URL (CSP интерфейса разрешает картинки только как data:). */
+function imageDataUrl(path) {
+  if (!path || !existsSync(path)) return null;
+  const mime = { '.png': 'image/png', '.webp': 'image/webp' }[extname(path).toLowerCase()] ?? 'image/jpeg';
+  try {
+    return `data:${mime};base64,${readFileSync(path).toString('base64')}`;
+  } catch {
+    return null;
+  }
+}
+
+/** Своя картинка фона в виде data URL (или null, если не задана). */
+function customWallpaperDataUrl() {
+  const { wallpaperFile } = settings();
+  return wallpaperFile ? imageDataUrl(join(app.getPath('userData'), wallpaperFile)) : null;
+}
+
+/** Встроенные обои «Лес в тумане». */
+function forestWallpaperDataUrl() {
+  return imageDataUrl(join(directory, '..', 'assets', 'wallpaper-forest.jpg'));
 }
 
 function sendToWindow(channel, payload) {
@@ -215,7 +238,7 @@ function createWindow() {
     minWidth: 900,
     minHeight: 600,
     show: false,
-    backgroundColor: '#12151c',
+    backgroundColor: settings().theme === 'light' ? '#e9edf2' : '#12151c',
     autoHideMenuBar: true,
     icon: join(directory, '..', 'assets', 'icon.ico'),
     webPreferences: {
@@ -388,6 +411,36 @@ function registerIpc() {
     autoUpdater.quitAndInstall();
   });
   ipcMain.handle('shell:open-data-folder', () => shell.openPath(app.getPath('userData')));
+
+  // --- Обои: своя картинка копируется в папку данных и отдаётся интерфейсу как data URL ---
+  ipcMain.handle('wallpaper:get', () => ({ forest: forestWallpaperDataUrl(), custom: customWallpaperDataUrl() }));
+  ipcMain.handle('wallpaper:choose', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow ?? undefined, {
+      title: 'Выбери картинку для фона',
+      properties: ['openFile'],
+      filters: [{ name: 'Картинки', extensions: ['jpg', 'jpeg', 'png', 'webp'] }],
+    });
+    if (canceled || !filePaths?.[0]) return { ok: false, reason: 'cancelled' };
+    const source = filePaths[0];
+    const extension = extname(source).toLowerCase() || '.jpg';
+    const fileName = `wallpaper${extension}`;
+    const target = join(app.getPath('userData'), fileName);
+    try {
+      // Сначала убираем старую картинку (могла быть с другим расширением).
+      for (const old of ['wallpaper.jpg', 'wallpaper.jpeg', 'wallpaper.png', 'wallpaper.webp']) {
+        const path = join(app.getPath('userData'), old);
+        if (existsSync(path) && path !== target) unlinkSync(path);
+      }
+      copyFileSync(source, target);
+    } catch (error) {
+      return { ok: false, reason: String(error?.message ?? error) };
+    }
+    const state = store.update((draft) => {
+      draft.settings = { ...draft.settings, wallpaper: 'custom', wallpaperFile: fileName };
+      return draft;
+    });
+    return { ok: true, settings: state.settings, dataUrl: customWallpaperDataUrl() };
+  });
   ipcMain.handle('window:hide', () => mainWindow?.hide());
 }
 

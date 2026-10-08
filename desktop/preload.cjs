@@ -30,6 +30,8 @@ contextBridge.exposeInMainWorld('lltasker', {
   checkUpdates: () => ipcRenderer.invoke('updates:check'),
   installUpdate: () => ipcRenderer.invoke('updates:install'),
   openDataFolder: () => ipcRenderer.invoke('shell:open-data-folder'),
+  getWallpaper: () => ipcRenderer.invoke('wallpaper:get'),
+  chooseWallpaper: () => ipcRenderer.invoke('wallpaper:choose'),
   hideWindow: () => ipcRenderer.invoke('window:hide'),
 
   onTasksChanged: (handler) => ipcRenderer.on(channels.onTasksChanged, (_event, tasks) => handler(tasks)),

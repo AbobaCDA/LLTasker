@@ -7,7 +7,7 @@
 <style>
   :root {
     --bg: #12151c;
-    --panel: #181c26;
+    --panel: rgba(24, 28, 38, .78);
     --panel-2: #1e2431;
     --line: #2a3242;
     --text: #e8ecf4;
@@ -17,152 +17,184 @@
     --ok: #3ecf8e;
     --warn: #f2b544;
     --danger: #f2545b;
-    --radius: 12px;
+    --radius: 14px;
+    --card-alpha: .6;
+    --card-rgb: 34, 40, 54;      /* цвет карточки, прозрачность — отдельно */
+    --card-line: rgba(255, 255, 255, .08);
+    --col-bg: rgba(255, 255, 255, .03);
+    --wallpaper: none;
+    --wallpaper-veil: rgba(10, 12, 18, .55);
+    --blur: 10px;
+  }
+  :root[data-theme="light"] {
+    --bg: #e9edf2;
+    --panel: rgba(255, 255, 255, .62);
+    --panel-2: rgba(255, 255, 255, .92);
+    --line: rgba(60, 72, 90, .18);
+    --text: #1f2733;
+    --muted: #55637a;
+    --accent: #2f6fed;
+    --accent-soft: rgba(47, 111, 237, .14);
+    --ok: #1f9d64;
+    --warn: #c98a12;
+    --danger: #d9414a;
+    --card-rgb: 255, 255, 255;
+    --card-line: rgba(80, 92, 110, .35);  /* серый контур облачка */
+    --col-bg: rgba(255, 255, 255, .12);
+    --wallpaper-veil: rgba(240, 243, 247, .25);
+    --blur: 12px;
   }
   * { box-sizing: border-box; }
+  html, body { height: 100%; }
   body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font: 14px/1.45 "Segoe UI", system-ui, sans-serif;
-    height: 100vh;
-    overflow: hidden;
-    user-select: none;
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.45 "Segoe UI", system-ui, sans-serif; overflow: hidden; user-select: none;
   }
+  body::before { content: ""; position: fixed; inset: 0; z-index: -1; background: var(--wallpaper) center / cover no-repeat; }
+  body::after { content: ""; position: fixed; inset: 0; z-index: -1; background: var(--wallpaper-veil); }
+  body.no-wallpaper::before, body.no-wallpaper::after { display: none; }
   button, input, select, textarea { font: inherit; color: inherit; }
   button { cursor: pointer; }
-  .app { display: grid; grid-template-columns: 232px 1fr; height: 100vh; }
 
-  /* --- Боковая панель --- */
-  .sidebar { background: var(--panel); border-right: 1px solid var(--line); padding: 14px 12px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; }
-  .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: .2px; }
-  .brand .logo { width: 26px; height: 26px; border-radius: 8px; background: linear-gradient(135deg, #4f8cff, #8b5cf6); display: grid; place-items: center; font-size: 15px; }
-  .nav { display: flex; flex-direction: column; gap: 3px; }
-  .nav button {
-    display: flex; justify-content: space-between; align-items: center; gap: 8px;
-    background: transparent; border: 0; border-radius: 8px; padding: 7px 10px; color: var(--muted); text-align: left;
-  }
-  .nav button:hover { background: var(--panel-2); color: var(--text); }
-  .nav button.active { background: var(--accent-soft); color: var(--text); font-weight: 600; }
-  .nav .count { font-size: 12px; background: var(--panel-2); border-radius: 20px; padding: 1px 7px; }
-  .nav button.active .count { background: rgba(79, 140, 255, .25); }
-  .side-title { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 4px 0 -6px 4px; }
-  .projects { display: flex; flex-wrap: wrap; gap: 6px; }
-  .chip { border: 1px solid var(--line); background: var(--panel-2); color: var(--muted); border-radius: 20px; padding: 3px 10px; font-size: 12px; }
-  .chip.active { border-color: var(--accent); color: var(--text); background: var(--accent-soft); }
-  .sidebar-footer { margin-top: auto; display: flex; flex-direction: column; gap: 6px; }
-  .ghost { background: transparent; border: 1px solid var(--line); color: var(--muted); border-radius: 8px; padding: 7px 10px; }
-  .ghost:hover { color: var(--text); border-color: var(--accent); }
+  .app { display: flex; flex-direction: column; height: 100vh; min-height: 0; }
 
-  /* --- Основная область --- */
-  .main { display: flex; flex-direction: column; min-width: 0; }
-  .topbar { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
-  .quick { flex: 1; display: flex; align-items: center; gap: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 12px; }
-  .quick input { flex: 1; background: transparent; border: 0; outline: none; }
-  .quick .preview { color: var(--muted); font-size: 12px; white-space: nowrap; }
-  .primary { background: var(--accent); border: 0; color: #fff; border-radius: 9px; padding: 8px 14px; font-weight: 600; }
+  /* --- Верхняя строка: минимум элементов --- */
+  .topbar { display: flex; align-items: center; gap: 10px; padding: 10px 14px; }
+  .brand { display: flex; align-items: center; gap: 8px; font-weight: 600; margin-right: 4px; white-space: nowrap; }
+  .brand .logo { width: 24px; height: 24px; border-radius: 7px; background: linear-gradient(135deg, #4f8cff, #8b5cf6); display: grid; place-items: center; font-size: 13px; color: #fff; }
+  .brand .badge { font-weight: 400; }
+  .quick { flex: 1; display: flex; align-items: center; gap: 10px; background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 7px 12px; min-width: 200px; }
+  .quick input { flex: 1; background: transparent; border: 0; outline: none; min-width: 80px; }
+  .quick .preview { color: var(--muted); font-size: 12px; white-space: nowrap; max-width: 40%; overflow: hidden; text-overflow: ellipsis; }
+  .primary { background: var(--accent); border: 0; color: #fff; border-radius: 10px; padding: 8px 14px; font-weight: 600; }
   .primary:hover { filter: brightness(1.08); }
-  .status { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+  .search { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; width: 150px; outline: none; transition: width .15s; }
+  .search:focus { width: 220px; border-color: var(--accent); }
+  .icon-btn { background: var(--panel-2); border: 1px solid var(--line); color: var(--muted); border-radius: 10px; width: 34px; height: 34px; display: grid; place-items: center; font-size: 16px; line-height: 1; flex: none; }
+  .icon-btn:hover { color: var(--text); border-color: var(--accent); }
+  .icon-btn.on { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+  .status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); white-space: nowrap; cursor: pointer; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
   .dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.err { background: var(--danger); }
 
-  .toolbar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; color: var(--muted); font-size: 12px; }
-  .toolbar input[type=search] { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; width: 220px; outline: none; }
+  /* --- Неделя: 7 колонок --- */
+  .board { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; padding: 4px 14px 8px; }
+  .col { display: flex; flex-direction: column; min-height: 0; border-radius: var(--radius); background: var(--col-bg); }
+  .col.today { box-shadow: inset 0 3px 0 var(--accent); }
+  .col.drop { outline: 2px dashed var(--accent); outline-offset: -2px; }
+  .col-head { padding: 10px 10px 6px; display: grid; grid-template-columns: 1fr auto; column-gap: 6px; align-items: baseline; }
+  .col-head .name { font-weight: 600; font-size: 13px; letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .col-head .date { grid-column: 1 / -1; font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .col.weekend .col-head .name { color: var(--danger); opacity: .85; }
+  .col-head .n { font-size: 11px; color: var(--muted); }
+  .shelf .col-head { grid-template-columns: auto 1fr; }
+  .col-body { flex: 1; min-height: 40px; overflow-y: auto; padding: 4px 8px 8px; display: flex; flex-direction: column; gap: 8px; }
+  .col-body::-webkit-scrollbar { width: 6px; } .col-body::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
 
-  .content { display: grid; grid-template-columns: 1fr 340px; gap: 0; flex: 1; min-height: 0; }
-  .list { overflow-y: auto; padding: 4px 16px 20px; }
-  .day-group { margin: 14px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
-  .task {
-    display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border-radius: var(--radius);
-    border: 1px solid transparent; margin-bottom: 6px; background: var(--panel);
+  /* --- Карточка-облачко --- */
+  .card {
+    position: relative; aspect-ratio: 1 / 1; width: 100%; flex: none;
+    border-radius: var(--radius); border: 1px solid var(--card-line);
+    background: rgba(var(--card-rgb), var(--card-alpha)); backdrop-filter: blur(var(--blur));
+    padding: 9px 10px 8px; display: flex; flex-direction: column; gap: 4px; cursor: grab;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, .06); transition: transform .1s, box-shadow .1s;
   }
-  .task:hover { border-color: var(--line); }
-  .task.selected { border-color: var(--accent); background: var(--panel-2); }
-  .task .check { width: 18px; height: 18px; margin-top: 2px; border-radius: 50%; border: 1.5px solid var(--line); background: transparent; flex: none; }
-  .task .check:hover { border-color: var(--ok); }
-  .task .check.done { background: var(--ok); border-color: var(--ok); color: #0c2a1d; font-size: 12px; line-height: 1; }
-  .task .body { flex: 1; min-width: 0; }
-  .task .title { font-weight: 500; overflow-wrap: anywhere; }
-  .task.done .title, .task.archived .title { color: var(--muted); text-decoration: line-through; }
-  .task .meta { display: flex; flex-wrap: wrap; gap: 8px; color: var(--muted); font-size: 12px; margin-top: 3px; }
-  .task .meta .late { color: var(--danger); }
-  .task .prio { width: 4px; border-radius: 3px; align-self: stretch; background: var(--line); flex: none; }
-  .prio-0 { background: #4a5568; } .prio-1 { background: #3b82f6; } .prio-2 { background: #f59e0b; } .prio-3 { background: #ef4444; }
-  .empty { color: var(--muted); padding: 30px 12px; text-align: center; line-height: 1.7; }
+  .card:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0, 0, 0, .12); border-color: var(--accent); }
+  .card.dragging { opacity: .35; }
+  .card.done { opacity: .55; }
+  .card.done .title { text-decoration: line-through; color: var(--muted); }
+  .card .top { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+  .card .top .time { font-weight: 600; color: var(--text); }
+  .card .top .late { color: var(--danger); font-weight: 600; }
+  .card .check { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid var(--muted); background: transparent; flex: none; padding: 0; margin-left: auto; font-size: 10px; line-height: 1; }
+  .card .check:hover { border-color: var(--ok); }
+  .card .check.done { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .card .title { font-weight: 500; font-size: 13px; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow-wrap: anywhere; flex: 1; }
+  .card .foot { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); min-height: 14px; }
+  .card .foot .proj { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .card .stripe { position: absolute; left: 10px; right: 10px; top: 0; height: 3px; border-radius: 0 0 3px 3px; }
+  .prio-0 .stripe { background: transparent; } .prio-1 .stripe { background: rgba(79, 140, 255, .5); } .prio-2 .stripe { background: #f59e0b; } .prio-3 .stripe { background: #ef4444; }
+  .placeholder { flex: none; width: 100%; aspect-ratio: 1 / 1; border-radius: var(--radius); border: 2px dashed var(--accent); opacity: .6; }
 
-  /* --- Панель задачи --- */
-  .editor { border-left: 1px solid var(--line); background: var(--panel); padding: 14px; overflow-y: auto; }
-  .editor h3 { margin: 0 0 12px; font-size: 15px; }
+  /* --- Полка внизу: без срока и позже --- */
+  .shelf { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 14px 12px; height: 150px; }
+  .shelf .col { flex-direction: column; }
+  .shelf .col-body { flex-direction: row; overflow-x: auto; overflow-y: hidden; align-items: stretch; }
+  .shelf .card { width: 108px; aspect-ratio: auto; height: 100%; }
+  .shelf .placeholder { width: 108px; aspect-ratio: auto; height: auto; }
+  .shelf.collapsed { height: 40px; }
+  .shelf.collapsed .col-body { display: none; }
+  .empty-hint { color: var(--muted); font-size: 12px; align-self: center; padding: 3px 9px; border-radius: 8px; background: rgba(var(--card-rgb), .55); }
+
+  /* --- Всплывающие окна --- */
+  .overlay { position: fixed; inset: 0; background: rgba(6, 8, 12, .45); display: none; z-index: 20; }
+  .overlay.open { display: block; }
+  .modal { position: fixed; inset: 0; display: none; place-items: center; z-index: 30; background: rgba(6, 8, 12, .35); }
+  .modal.open { display: grid; }
+  .modal-card { width: min(560px, calc(100vw - 40px)); max-height: calc(100vh - 40px); overflow-y: auto; background: var(--panel-2); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px 16px; box-shadow: 0 20px 60px rgba(0, 0, 0, .35); }
+  .editor-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+  .editor-head h3 { margin: 0; font-size: 16px; }
   .field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
   .field label { font-size: 12px; color: var(--muted); }
-  .field input, .field select, .field textarea {
-    background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; outline: none; width: 100%;
-  }
+  .field input, .field select, .field textarea { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; outline: none; width: 100%; }
+  :root[data-theme="light"] .field input, :root[data-theme="light"] .field select, :root[data-theme="light"] .field textarea { background: #fff; }
   .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); }
-  .field textarea { resize: vertical; min-height: 64px; }
-  .row { display: flex; gap: 8px; }
+  .field textarea { resize: vertical; min-height: 56px; }
+  .field input[type=range] { padding: 0; border: 0; background: transparent; }
+  .row { display: flex; gap: 10px; }
   .row > * { flex: 1; }
   .offsets { display: flex; flex-wrap: wrap; gap: 6px; }
-  .offsets button { border: 1px solid var(--line); background: var(--panel-2); color: var(--muted); border-radius: 20px; padding: 4px 10px; font-size: 12px; }
+  .offsets button { border: 1px solid var(--line); background: transparent; color: var(--muted); border-radius: 20px; padding: 4px 10px; font-size: 12px; }
   .offsets button.on { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
   .actions { display: flex; gap: 8px; margin-top: 8px; }
   .actions button { flex: 1; border-radius: 9px; padding: 9px 12px; }
+  .ghost { background: transparent; border: 1px solid var(--line); color: var(--muted); border-radius: 8px; padding: 7px 10px; }
+  .ghost:hover { color: var(--text); border-color: var(--accent); }
   .danger { background: transparent; border: 1px solid var(--danger); color: var(--danger); }
   .danger:hover { background: rgba(242, 84, 91, .12); }
   .hint { color: var(--muted); font-size: 12px; line-height: 1.5; }
+  .chip { border: 1px solid var(--line); background: var(--panel-2); color: var(--muted); border-radius: 20px; padding: 3px 10px; font-size: 12px; }
 
-  /* --- Настройки --- */
-  .overlay { position: fixed; inset: 0; background: rgba(6, 8, 12, .6); display: none; }
-  .overlay.open { display: block; }
-  .drawer { position: fixed; top: 0; right: 0; height: 100vh; width: 400px; background: var(--panel); border-left: 1px solid var(--line); padding: 16px; overflow-y: auto; }
+  /* --- Настройки (выезжающая панель) --- */
+  .drawer { position: fixed; top: 0; right: 0; height: 100vh; width: 400px; background: var(--panel-2); border-left: 1px solid var(--line); padding: 16px; overflow-y: auto; z-index: 25; }
+  :root[data-theme="light"] .drawer { background: #f6f8fb; }
   .drawer h3 { margin: 0 0 4px; }
   .section { border-top: 1px solid var(--line); margin-top: 14px; padding-top: 14px; }
   .section h4 { margin: 0 0 10px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
   .switch { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
-  .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 16px; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 70vw; }
+  .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 10px 16px; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 70vw; z-index: 40; }
   .toast.show { opacity: 1; }
   .badge { font-size: 11px; border-radius: 6px; padding: 1px 6px; background: var(--panel-2); color: var(--muted); }
   .badge.ok { color: var(--ok); } .badge.err { color: var(--danger); } .badge.warn { color: var(--warn); }
+  .wall-options { display: flex; gap: 8px; }
+  .wall-options button { flex: 1; border-radius: 10px; border: 2px solid var(--line); height: 54px; background: var(--panel-2) center / cover no-repeat; color: var(--muted); font-size: 12px; padding: 0 4px; }
+  .wall-options button span { display: inline-block; background: rgba(255, 255, 255, .85); color: #1f2733; border-radius: 6px; padding: 2px 7px; }
+  .wall-options button.plain span { background: transparent; color: inherit; }
+  .wall-options button.on { border-color: var(--accent); color: var(--text); }
 </style>
 </head>
 <body>
 <div class="app">
-  <aside class="sidebar">
+  <header class="topbar">
     <div class="brand"><span class="logo">✦</span> LLTasker <span class="badge" id="version"></span></div>
-    <nav class="nav" id="filters"></nav>
-    <div class="side-title">Проекты</div>
-    <div class="projects" id="projects"><span class="hint">Пока нет проектов</span></div>
-    <div class="sidebar-footer">
-      <button class="ghost" id="syncButton">Синхронизировать</button>
-      <button class="ghost" id="settingsButton">Настройки и аккаунт</button>
+    <div class="quick">
+      <input id="quickInput" placeholder="купить фильтр завтра 19:00 !2 #дом — просто напиши задачу" />
+      <span class="preview" id="quickPreview"></span>
     </div>
-  </aside>
+    <button class="primary" id="quickAdd">Добавить</button>
+    <input type="search" class="search" id="search" placeholder="Поиск" />
+    <button class="icon-btn" id="showDone" title="Показывать выполненные">✓</button>
+    <div class="status" id="status" title="Нажми, чтобы синхронизировать"><span class="dot" id="cloudDot"></span><span id="cloudText">Локальный режим</span></div>
+    <button class="icon-btn" id="settingsButton" title="Настройки и аккаунт">⚙</button>
+  </header>
 
-  <main class="main">
-    <div class="topbar">
-      <div class="quick">
-        <input id="quickInput" placeholder="купить фильтр завтра 19:00 !2 #дом — просто напиши задачу" />
-        <span class="preview" id="quickPreview"></span>
-      </div>
-      <button class="primary" id="quickAdd">Добавить</button>
-      <div class="status"><span class="dot" id="cloudDot"></span><span id="cloudText">Локальный режим</span></div>
-    </div>
-
-    <div class="toolbar">
-      <input type="search" id="search" placeholder="Поиск по задачам" />
-      <label class="hint"><input type="checkbox" id="showDone" /> показывать выполненные</label>
-      <span class="hint" id="stats"></span>
-    </div>
-
-    <div class="content">
-      <div class="list" id="list"></div>
-      <div class="editor" id="editor"><p class="hint">Выбери задачу слева или добавь новую строкой сверху.<br /><br />Подсказки ввода:<br />• завтра 19:00<br />• в пятницу в 10<br />• через 3 дня<br />• !2 — приоритет<br />• #дом — проект, +срочно — тег<br />• за день за час — напоминания<br />• каждый день / по будням</p></div>
-    </div>
-  </main>
+  <main class="board" id="board"></main>
+  <section class="shelf" id="shelf"></section>
 </div>
 
 <div class="overlay" id="overlay"></div>
 <div class="drawer" id="drawer" style="display:none"></div>
+<div class="modal" id="modal"><div class="modal-card" id="editor"></div></div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -192,7 +224,7 @@ function demoTasks() {
 const demoBridge = {
   load: async () => ({
     tasks: demoTasks(),
-    settings: { timezone: 'Europe/Moscow', digestEnabled: true, digestAt: '09:00', notifications: 'both', supabaseUrl: '', supabaseKey: '' },
+    settings: { timezone: 'Europe/Moscow', digestEnabled: true, digestAt: '09:00', notifications: 'both', supabaseUrl: '', supabaseKey: '', theme: 'light', wallpaper: 'forest', cardOpacity: 60 },
     cloud: { configured: false, signedIn: false, error: '' },
     update: { status: 'dev' },
     startup: false,
@@ -212,6 +244,14 @@ const demoBridge = {
   checkUpdates: async () => ({ status: 'dev' }),
   installUpdate: () => {},
   openDataFolder: async () => {},
+  getWallpaper: async () => {
+    try {
+      const blob = await (await fetch('assets/wallpaper-forest.jpg')).blob();
+      const forest = await new Promise((resolve) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.readAsDataURL(blob); });
+      return { forest, custom: null };
+    } catch { return { forest: null, custom: null }; }
+  },
+  chooseWallpaper: async () => ({ ok: false, reason: 'demo' }),
   hideWindow: async () => {},
   onTasksChanged: () => {},
   onCloudStatus: () => {},
@@ -227,8 +267,6 @@ const state = {
   startup: false,
   update: {},
   info: {},
-  filter: 'today',
-  project: null,
   search: '',
   selectedId: null,
   draft: null, // несохранённые правки открытой карточки: { taskId, title, notes, date, time, priority, recurrence, project, tags, remind_offsets }
@@ -303,11 +341,33 @@ function isLate(task) {
   return task.status === 'open' && task.due_at && localDate(task.due_at, state.settings.timezone || 'Europe/Moscow') < todayLocal(state.settings.timezone || 'Europe/Moscow');
 }
 
+// --- Оформление: тема и обои ---
+// Картинки приходят из главного процесса как data URL: CSP страницы не пускает file://.
+let wallpapers = null; // { forest, custom }
+async function loadWallpapers(force = false) {
+  if (!wallpapers || force) wallpapers = (await bridge.getWallpaper()) || { forest: null, custom: null };
+  return wallpapers;
+}
+async function applyAppearance() {
+  const theme = state.settings.theme === 'light' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = theme;
+  let url = null;
+  if (state.settings.wallpaper === 'forest' || state.settings.wallpaper === 'custom') {
+    const images = await loadWallpapers();
+    url = images[state.settings.wallpaper] || null;
+  }
+  document.body.classList.toggle('no-wallpaper', !url);
+  const opacity = Math.min(95, Math.max(20, Number(state.settings.cardOpacity) || 60));
+  document.documentElement.style.setProperty('--card-alpha', String(opacity / 100));
+  document.documentElement.style.setProperty('--wallpaper', url ? `url("${url}")` : 'none');
+}
+
 // --- Загрузка и сохранение ---
 async function bootstrap() {
   const payload = await bridge.load();
   state.tasks = payload.tasks || [];
   state.settings = payload.settings || {};
+  await applyAppearance();
   state.cloud = payload.cloud || {};
   state.startup = Boolean(payload.startup);
   state.update = payload.update || {};
@@ -347,114 +407,224 @@ function newTask(title, extra = {}) {
   };
 }
 
-// --- Фильтрация и список ---
-function visibleTasks() {
-  const timeZone = state.settings.timezone || 'Europe/Moscow';
-  const today = todayLocal(timeZone);
-  const weekEnd = addDaysLocal(timeZone, 7);
-  const query = state.search.trim().toLowerCase();
-  return state.tasks
-    .filter((task) => {
-      if (task.status === 'archived') return false;
-      if (task.status === 'done' && !state.showDone && state.filter !== 'done') return false;
-      if (state.project && task.project !== state.project) return false;
-      if (query && !`${task.title} ${task.notes} ${task.project ?? ''} ${(task.tags || []).join(' ')}`.toLowerCase().includes(query)) return false;
-      const due = task.due_at ? localDate(task.due_at, timeZone) : null;
-      if (state.filter === 'today') return !due || due <= today;
-      if (state.filter === 'overdue') return due !== null && due < today && task.status === 'open';
-      if (state.filter === 'week') return due !== null && due <= weekEnd;
-      if (state.filter === 'done') return task.status === 'done';
-      if (state.filter === 'open') return task.status === 'open';
-      return true;
-    })
-    .sort((left, right) => {
-      if (left.status !== right.status) return left.status === 'open' ? -1 : 1;
-      const leftDue = left.due_at ? Date.parse(left.due_at) : Number.MAX_SAFE_INTEGER;
-      const rightDue = right.due_at ? Date.parse(right.due_at) : Number.MAX_SAFE_INTEGER;
-      if (leftDue !== rightDue) return leftDue - rightDue;
-      return Number(right.priority) - Number(left.priority);
-    });
-}
-
-function renderFilters() {
-  const timeZone = state.settings.timezone || 'Europe/Moscow';
-  const today = todayLocal(timeZone);
-  const counts = {
-    today: state.tasks.filter((task) => task.status === 'open' && (!task.due_at || localDate(task.due_at, timeZone) <= today)).length,
-    week: state.tasks.filter((task) => task.status === 'open' && task.due_at && localDate(task.due_at, timeZone) <= addDaysLocal(timeZone, 7)).length,
-    open: state.tasks.filter((task) => task.status === 'open').length,
-    overdue: state.tasks.filter((task) => isLate(task)).length,
-    done: state.tasks.filter((task) => task.status === 'done').length,
-    all: state.tasks.length,
-  };
-  const items = [['today', 'Сегодня'], ['week', 'Неделя'], ['open', 'Все открытые'], ['overdue', 'Просроченные'], ['done', 'Выполненные'], ['all', 'Все']];
-  $('filters').innerHTML = items.map(([key, label]) =>
-    `<button data-filter="${key}" class="${state.filter === key ? 'active' : ''}">${label}<span class="count">${counts[key] ?? 0}</span></button>`).join('');
-  $('filters').querySelectorAll('button').forEach((button) => {
-    button.onclick = () => { state.filter = button.dataset.filter; render(); };
-  });
-
-  const projects = Array.from(new Set(state.tasks.map((task) => task.project).filter(Boolean))).sort();
-  $('projects').innerHTML = projects.length
-    ? `<button class="chip ${!state.project ? 'active' : ''}" data-project="">все</button>` +
-      projects.map((name) => `<button class="chip ${state.project === name ? 'active' : ''}" data-project="${escapeHtml(name)}">#${escapeHtml(name)}</button>`).join('')
-    : '<span class="hint">Пока нет проектов</span>';
-  $('projects').querySelectorAll('button').forEach((button) => {
-    button.onclick = () => { state.project = button.dataset.project || null; render(); };
-  });
-
-  $('stats').textContent = `открыто: ${counts.open} · просрочено: ${counts.overdue} · выполнено: ${counts.done}`;
-}
-
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
 }
 
-function renderList() {
-  const tasks = visibleTasks();
-  if (tasks.length === 0) {
-    $('list').innerHTML = '<div class="empty">Пусто.<br />Добавь задачу строкой сверху — например:<br /><b>сдать отчёт в пятницу 18:00 !3 #работа</b></div>';
-    return;
-  }
+
+// --- Неделя: раскладка задач по дням ---
+const WEEKDAY = new Intl.DateTimeFormat('ru-RU', { weekday: 'long' });
+const WEEKDAY_SHORT = new Intl.DateTimeFormat('ru-RU', { weekday: 'short' });
+const DAY_MONTH = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short' });
+function dateAtNoon(dateString) {
+  const [year, month, day] = dateString.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day, 12, 0));
+}
+function capitalize(text) { return text ? text[0].toUpperCase() + text.slice(1) : text; }
+
+/** Семь дней начиная с сегодня: ключ-дата, подпись и мелкая дата. */
+function weekDays() {
   const timeZone = state.settings.timezone || 'Europe/Moscow';
-  const today = todayLocal(timeZone);
-  const groups = new Map();
-  for (const task of tasks) {
-    const key = !task.due_at ? 'Без срока' : localDate(task.due_at, timeZone) < today ? 'Просрочено' : localDate(task.due_at, timeZone) === today ? 'Сегодня' : 'Дальше';
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(task);
-  }
-  let html = '';
-  for (const [groupName, groupTasks] of groups) {
-    html += `<div class="day-group">${groupName}</div>`;
-    for (const task of groupTasks) {
-      const meta = [];
-      if (task.due_at) meta.push(`<span class="${isLate(task) ? 'late' : ''}">📅 ${dueDayLabel(task)}</span>`);
-      if (task.project) meta.push(`<span>#${escapeHtml(task.project)}</span>`);
-      if (task.recurrence) meta.push('<span>🔁</span>');
-      if ((task.remind_offsets || []).length === 0) meta.push('<span>🔕</span>');
-      else if (task.due_at) meta.push(`<span>🔔 ${task.remind_offsets.length}</span>`);
-      if (!task.synced && state.cloud.signedIn) meta.push('<span title="Ещё не ушло в облако">⏳</span>');
-      html += `
-        <div class="task ${task.status === 'done' ? 'done' : ''} ${state.selectedId === task.id ? 'selected' : ''}" data-id="${task.id}">
-          <span class="prio prio-${task.priority}"></span>
-          <button class="check ${task.status === 'done' ? 'done' : ''}" data-toggle="${task.id}">${task.status === 'done' ? '✓' : ''}</button>
-          <div class="body" data-select="${task.id}">
-            <div class="title">${escapeHtml(task.title)}</div>
-            <div class="meta">${meta.join('')}</div>
-          </div>
-        </div>`;
-    }
-  }
-  $('list').innerHTML = html;
-  $('list').querySelectorAll('[data-toggle]').forEach((button) => {
-    button.onclick = (event) => { event.stopPropagation(); toggleDone(button.dataset.toggle); };
-  });
-  $('list').querySelectorAll('[data-select]').forEach((element) => {
-    element.onclick = () => { selectTask(element.dataset.select); };
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = addDaysLocal(timeZone, index);
+    const noon = dateAtNoon(date);
+    const weekday = noon.getUTCDay();
+    const narrow = window.innerWidth < 1040;
+    const fullName = capitalize(WEEKDAY.format(noon));
+    const name = index === 0 ? 'Сегодня' : index === 1 ? 'Завтра' : narrow ? capitalize(WEEKDAY_SHORT.format(noon)) : fullName;
+    const sub = index <= 1 ? `${WEEKDAY_SHORT.format(noon)}, ${DAY_MONTH.format(noon).replace('.', '')}` : DAY_MONTH.format(noon).replace('.', '');
+    return { date, name, sub, weekend: weekday === 0 || weekday === 6 };
   });
 }
 
+function matchesSearch(task) {
+  const query = state.search.trim().toLowerCase();
+  if (!query) return true;
+  return `${task.title} ${task.notes} ${task.project ?? ''} ${(task.tags || []).join(' ')}`.toLowerCase().includes(query);
+}
+
+function byBoardOrder(left, right) {
+  if (left.status !== right.status) return left.status === 'open' ? -1 : 1;
+  const leftOrder = Number.isFinite(Number(left.sort_order)) ? Number(left.sort_order) : 0;
+  const rightOrder = Number.isFinite(Number(right.sort_order)) ? Number(right.sort_order) : 0;
+  if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+  const leftDue = left.due_at ? Date.parse(left.due_at) : Number.MAX_SAFE_INTEGER;
+  const rightDue = right.due_at ? Date.parse(right.due_at) : Number.MAX_SAFE_INTEGER;
+  if (leftDue !== rightDue) return leftDue - rightDue;
+  return Number(right.priority) - Number(left.priority);
+}
+
+/** Раскладка: { days: Map(date → tasks[]), none: tasks[], later: tasks[] }. Просроченные попадают в «Сегодня». */
+function boardData() {
+  const timeZone = state.settings.timezone || 'Europe/Moscow';
+  const days = weekDays();
+  const buckets = { days: new Map(days.map((day) => [day.date, []])), none: [], later: [] };
+  const today = days[0].date;
+  const last = days[6].date;
+  for (const task of state.tasks) {
+    if (task.status === 'archived') continue;
+    if (task.status === 'done' && !state.showDone) continue;
+    if (!matchesSearch(task)) continue;
+    if (!task.due_at) { buckets.none.push(task); continue; }
+    const date = localDate(task.due_at, timeZone);
+    if (date <= today) buckets.days.get(today).push(task);
+    else if (date <= last) buckets.days.get(date).push(task);
+    else buckets.later.push(task);
+  }
+  for (const list of buckets.days.values()) list.sort(byBoardOrder);
+  buckets.none.sort(byBoardOrder);
+  buckets.later.sort(byBoardOrder);
+  return { days, buckets };
+}
+
+function cardHtml(task, { showDay = false } = {}) {
+  const late = isLate(task);
+  const time = dueLabel(task);
+  const top = [];
+  if (showDay && task.due_at) top.push(`<span class="${late ? 'late' : 'time'}">${escapeHtml(dueDayLabel(task))}</span>`);
+  else if (late) top.push(`<span class="late" title="Просрочено">${escapeHtml(dueDayLabel(task))}</span>`);
+  else if (time) top.push(`<span class="time">${time}</span>`);
+  else if (task.due_at) top.push('<span>весь день</span>');
+  const foot = [];
+  if (task.project) foot.push(`<span class="proj">#${escapeHtml(task.project)}</span>`);
+  if (task.recurrence) foot.push('<span title="Повторяется">🔁</span>');
+  if (task.due_at && (task.remind_offsets || []).length === 0) foot.push('<span title="Напоминания выключены">🔕</span>');
+  if (!task.synced && state.cloud.signedIn) foot.push('<span title="Ещё не ушло в облако">⏳</span>');
+  return `
+    <div class="card prio-${Number(task.priority) || 0} ${task.status === 'done' ? 'done' : ''}" draggable="true" data-id="${task.id}" title="${escapeHtml(task.title)}">
+      <span class="stripe"></span>
+      <div class="top">${top.join('')}<button class="check ${task.status === 'done' ? 'done' : ''}" data-toggle="${task.id}" title="Выполнено">${task.status === 'done' ? '✓' : ''}</button></div>
+      <div class="title">${escapeHtml(task.title)}</div>
+      <div class="foot">${foot.join('')}</div>
+    </div>`;
+}
+
+function renderBoard() {
+  const { days, buckets } = boardData();
+  $('board').innerHTML = days.map((day, index) => {
+    const tasks = buckets.days.get(day.date);
+    return `
+      <section class="col ${index === 0 ? 'today' : ''} ${day.weekend ? 'weekend' : ''}" data-day="${day.date}">
+        <div class="col-head"><span class="name">${day.name}</span><span class="n">${tasks.length || ''}</span><span class="date">${day.sub}</span></div>
+        <div class="col-body" data-zone="day" data-day="${day.date}">${tasks.map((task) => cardHtml(task)).join('')}</div>
+      </section>`;
+  }).join('');
+
+  const shelfSection = (zone, title, tasks, hint) => `
+    <section class="col" data-zone-wrap="${zone}">
+      <div class="col-head"><span class="name">${title}</span><span class="n">${tasks.length || ''}</span></div>
+      <div class="col-body" data-zone="${zone}">${tasks.length ? tasks.map((task) => cardHtml(task, { showDay: zone === 'later' })).join('') : `<span class="empty-hint">${hint}</span>`}</div>
+    </section>`;
+  $('shelf').innerHTML =
+    shelfSection('none', 'Без срока', buckets.none, 'Перетащи сюда, чтобы снять срок') +
+    shelfSection('later', 'Позже', buckets.later, 'Задачи дальше этой недели');
+
+  document.querySelectorAll('[data-toggle]').forEach((button) => {
+    button.onclick = (event) => { event.stopPropagation(); toggleDone(button.dataset.toggle); };
+  });
+  document.querySelectorAll('.card[data-id]').forEach((card) => {
+    card.onclick = () => selectTask(card.dataset.id);
+    card.addEventListener('dragstart', onDragStart);
+    card.addEventListener('dragend', onDragEnd);
+  });
+  document.querySelectorAll('.col-body[data-zone]').forEach((zone) => {
+    zone.addEventListener('dragover', onDragOver);
+    zone.addEventListener('dragleave', onDragLeave);
+    zone.addEventListener('drop', onDrop);
+  });
+}
+
+// --- Перетаскивание: внутри дня (порядок) и между днями (срок) ---
+let dragId = null;
+let placeholder = null;
+
+function onDragStart(event) {
+  dragId = event.currentTarget.dataset.id;
+  event.currentTarget.classList.add('dragging');
+  event.dataTransfer.effectAllowed = 'move';
+  event.dataTransfer.setData('text/plain', dragId);
+  placeholder = document.createElement('div');
+  placeholder.className = 'placeholder';
+}
+function onDragEnd() {
+  document.querySelectorAll('.card.dragging').forEach((card) => card.classList.remove('dragging'));
+  document.querySelectorAll('.col.drop').forEach((col) => col.classList.remove('drop'));
+  placeholder?.remove();
+  placeholder = null;
+  dragId = null;
+}
+function onDragOver(event) {
+  if (!dragId) return;
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+  const zone = event.currentTarget;
+  zone.closest('.col').classList.add('drop');
+  // Куда вставить: перед первой карточкой, чья середина ниже (или правее — на полке) курсора.
+  const horizontal = zone.dataset.zone !== 'day';
+  const cards = Array.from(zone.querySelectorAll('.card:not(.dragging)'));
+  const next = cards.find((card) => {
+    const rect = card.getBoundingClientRect();
+    return horizontal ? event.clientX < rect.left + rect.width / 2 : event.clientY < rect.top + rect.height / 2;
+  });
+  if (placeholder && placeholder.parentElement !== zone || (next ? placeholder.nextSibling !== next : placeholder.parentElement !== zone || zone.lastElementChild !== placeholder)) {
+    if (next) zone.insertBefore(placeholder, next); else zone.appendChild(placeholder);
+  }
+}
+function onDragLeave(event) {
+  const zone = event.currentTarget;
+  if (!zone.contains(event.relatedTarget)) zone.closest('.col').classList.remove('drop');
+}
+async function onDrop(event) {
+  event.preventDefault();
+  const zone = event.currentTarget;
+  const taskId = dragId || event.dataTransfer.getData('text/plain');
+  if (!taskId) return;
+  // Порядок в целевой зоне: карточки + метка на месте вставки.
+  const order = Array.from(zone.children)
+    .map((element) => (element === placeholder ? taskId : element.dataset?.id))
+    .filter((id, index, list) => id && list.indexOf(id) === index);
+  if (!order.includes(taskId)) order.push(taskId);
+  const target = zone.dataset.zone === 'day' ? { kind: 'day', date: zone.dataset.day } : { kind: zone.dataset.zone };
+  onDragEnd();
+  await moveTask(taskId, target, order);
+}
+
+/** Переносит задачу: меняет срок (время сохраняется) и переписывает порядок карточек в целевой зоне. */
+async function moveTask(taskId, target, order) {
+  const task = state.tasks.find((item) => item.id === taskId);
+  if (!task) return;
+  const timeZone = state.settings.timezone || 'Europe/Moscow';
+  const now = new Date().toISOString();
+  let patch = {};
+  if (target.kind === 'day' || target.kind === 'later') {
+    const dateString = target.kind === 'day' ? target.date : addDaysLocal(timeZone, 7);
+    const [year, month, day] = dateString.split('-').map(Number);
+    if (task.due_at && !task.all_day) {
+      const p = parts(task.due_at, timeZone);
+      patch = { due_at: zonedToUtc(year, month, day, p.hour, p.minute, timeZone).toISOString(), all_day: false };
+    } else {
+      patch = { due_at: zonedToUtc(year, month, day, 12, 0, timeZone).toISOString(), all_day: true };
+    }
+    if (target.kind === 'day' && task.due_at && localDate(task.due_at, timeZone) === target.date) patch = {};
+  } else if (target.kind === 'none') {
+    patch = task.due_at ? { due_at: null, all_day: false } : {};
+  }
+  const positions = new Map(order.map((id, index) => [id, index * 10]));
+  const next = state.tasks.map((item) => {
+    const isMoved = item.id === taskId;
+    const position = positions.get(item.id);
+    const orderChanged = position !== undefined && Number(item.sort_order) !== position;
+    if (!isMoved && !orderChanged) return item;
+    return { ...item, ...(isMoved ? patch : {}), ...(position !== undefined ? { sort_order: position } : {}), updated_at: now, dirty: true };
+  });
+  const label = target.kind === 'none' ? 'без срока' : target.kind === 'later' ? 'на следующую неделю' : `на ${dueDayLabelFor(target.date)}`;
+  await saveTasks(next, Object.keys(patch).length ? `«${task.title}» — ${label}` : null);
+}
+function dueDayLabelFor(dateString) {
+  const days = weekDays();
+  const found = days.find((day) => day.date === dateString);
+  return found ? (found.name === 'Сегодня' || found.name === 'Завтра' ? found.name.toLowerCase() : `${found.name.toLowerCase()}, ${found.sub}`) : dateString;
+}
 async function toggleDone(taskId) {
   const task = state.tasks.find((item) => item.id === taskId);
   if (!task) return;
@@ -470,13 +640,15 @@ async function toggleDone(taskId) {
   await saveTasks(next, null);
 }
 
-// --- Панель задачи ---
+// --- Карточка задачи (всплывающее окно) ---
 function renderEditor() {
   const task = state.tasks.find((item) => item.id === state.selectedId);
   if (!task) {
-    $('editor').innerHTML = '<p class="hint">Выбери задачу слева или добавь новую строкой сверху.<br /><br />Подсказки ввода:<br />• завтра 19:00<br />• в пятницу в 10<br />• через 3 дня<br />• !2 — приоритет<br />• #дом — проект, +срочно — тег<br />• за день за час — напоминания<br />• каждый день / по будням</p>';
+    $('modal').classList.remove('open');
+    $('editor').innerHTML = '';
     return;
   }
+  $('modal').classList.add('open');
   const timeZone = state.settings.timezone || 'Europe/Moscow';
   const p = task.due_at ? parts(task.due_at, timeZone) : null;
   const savedDate = p ? `${p.year}-${String(p.month).padStart(2, '0')}-${String(p.day).padStart(2, '0')}` : '';
@@ -497,7 +669,10 @@ function renderEditor() {
     remind_offsets: d.remind_offsets ?? (task.remind_offsets || []),
   };
   $('editor').innerHTML = `
-    <h3>Задача${state.draft ? ' <span class="hint">· есть несохранённые изменения</span>' : ''}</h3>
+    <div class="editor-head">
+      <h3>${task.due_at ? escapeHtml(dueDayLabel(task)) : 'Без срока'}${state.draft ? ' <span class="hint">· не сохранено</span>' : ''}</h3>
+      <button class="icon-btn" id="fClose" title="Закрыть без сохранения (Esc)">×</button>
+    </div>
     <div class="field"><label>Название</label><input id="fTitle" value="${escapeHtml(v.title)}" /></div>
     <div class="field"><label>Заметки</label><textarea id="fNotes">${escapeHtml(v.notes)}</textarea></div>
     <div class="row">
@@ -526,14 +701,9 @@ function renderEditor() {
     <div class="actions">
       <button class="primary" id="fSave">Сохранить</button>
       <button class="ghost" id="fArchive">${task.status === 'archived' ? 'Вернуть' : 'В архив'}</button>
-    </div>
-    <div class="actions">
       <button class="danger" id="fDelete">Удалить</button>
     </div>
-    <div class="section hint">
-      ${task.due_at ? `Срок: ${dueDayLabel(task)} · ${dueLabel(task) || 'без времени'}` : 'Срок не задан'}
-      ${task.synced ? '<br />Синхронизировано с облаком' : '<br />Ждёт синхронизации'}
-    </div>`;
+    <p class="hint" style="margin:10px 0 0">${task.synced ? 'Синхронизировано с облаком' : 'Ждёт синхронизации'}</p>`;
 
   // Любой ввод в карточке — в черновик, чтобы перерисовка его не потеряла.
   ['fTitle', 'fNotes', 'fDate', 'fTime', 'fPriority', 'fRecurrence', 'fProject', 'fTags'].forEach((id) => {
@@ -553,6 +723,7 @@ function renderEditor() {
     };
   });
   $('fSave').onclick = () => applyEditor(task);
+  $('fClose').onclick = () => { state.draft = null; state.selectedId = null; render(); };
   $('fArchive').onclick = async () => {
     const next = state.tasks.map((item) => item.id === task.id
       ? { ...item, status: item.status === 'archived' ? 'open' : 'archived', updated_at: new Date().toISOString(), dirty: true }
@@ -672,7 +843,6 @@ async function quickAdd() {
   });
   $('quickInput').value = '';
   $('quickPreview').textContent = '';
-  state.selectedId = task.id;
   await saveTasks([...state.tasks, task], `Добавлено: ${task.title}`);
 }
 
@@ -720,6 +890,24 @@ function renderSettings() {
     </div>
 
     <div class="section">
+      <h4>Оформление</h4>
+      <div class="field"><label>Тема</label><select id="sTheme">
+        <option value="dark" ${settings.theme !== 'light' ? 'selected' : ''}>Тёмная</option>
+        <option value="light" ${settings.theme === 'light' ? 'selected' : ''}>Светлая</option>
+      </select></div>
+      <div class="field"><label>Фон</label>
+        <div class="wall-options">
+          <button class="plain ${settings.wallpaper === 'none' || !settings.wallpaper ? 'on' : ''}" data-wall="none"><span>Без картинки</span></button>
+          <button class="${settings.wallpaper === 'forest' ? 'on' : ''}" data-wall="forest" ${wallpapers?.forest ? `style="background-image:url('${wallpapers.forest}')"` : ''}><span>Лес в тумане</span></button>
+          <button class="${settings.wallpaper === 'custom' ? 'on' : ''}" data-wall="custom" ${wallpapers?.custom ? `style="background-image:url('${wallpapers.custom}')"` : ''}><span>${settings.wallpaperFile ? 'Своя картинка' : 'Выбрать свою…'}</span></button>
+        </div>
+      </div>
+      ${settings.wallpaperFile ? '<p class="hint">Чтобы заменить свою картинку, нажми «Своя картинка» ещё раз.</p>' : '<p class="hint">Своя картинка копируется в папку данных приложения (jpg, png, webp).</p>'}
+      <div class="field"><label>Плотность карточек: <span id="sOpacityValue">${Number(settings.cardOpacity) || 60}%</span></label>
+        <input type="range" id="sOpacity" min="20" max="95" step="5" value="${Number(settings.cardOpacity) || 60}" /></div>
+    </div>
+
+    <div class="section">
       <h4>Приложение</h4>
       <div class="switch"><span>Запускать с Windows</span><input type="checkbox" id="sStartup" ${state.startup ? 'checked' : ''} /></div>
       <div class="actions"><button class="ghost" id="sCheckUpdates">Проверить обновления</button>${state.update.status === 'ready' ? '<button class="primary" id="sInstall">Перезапустить и обновить</button>' : ''}</div>
@@ -734,6 +922,30 @@ function renderSettings() {
     render();
   };
   $('sTimezone').onchange = () => saveSettings({ timezone: $('sTimezone').value }, 'Часовой пояс сохранён');
+  $('sTheme').onchange = async () => { await saveSettings({ theme: $('sTheme').value }); await applyAppearance(); };
+  $('sOpacity').oninput = () => { $('sOpacityValue').textContent = `${$('sOpacity').value}%`; document.documentElement.style.setProperty('--card-alpha', String(Number($('sOpacity').value) / 100)); };
+  $('sOpacity').onchange = async () => { await saveSettings({ cardOpacity: Number($('sOpacity').value) }); await applyAppearance(); };
+  $('drawer').querySelectorAll('[data-wall]').forEach((button) => {
+    button.onclick = async () => {
+      const choice = button.dataset.wall;
+      if (choice === 'custom') {
+        // Повторный клик по уже выбранной своей картинке — предлагаем заменить; иначе просто включаем.
+        if (state.settings.wallpaper === 'custom' || !state.settings.wallpaperFile) {
+          const result = await bridge.chooseWallpaper();
+          if (!result?.ok) { if (result?.reason && result.reason !== 'cancelled') toast(`Не удалось: ${result.reason}`); return; }
+          await loadWallpapers(true);
+          state.settings = result.settings || { ...state.settings, wallpaper: 'custom' };
+          toast('Фон обновлён');
+        } else {
+          await saveSettings({ wallpaper: 'custom' });
+        }
+      } else {
+        await saveSettings({ wallpaper: choice });
+      }
+      await applyAppearance();
+      renderSettings();
+    };
+  });
   $('sDigest').onchange = () => saveSettings({ digestEnabled: $('sDigest').checked });
   $('sDigestAt').onchange = () => saveSettings({ digestAt: $('sDigestAt').value || '09:00' }, 'Время дайджеста сохранено');
   $('sNotifications').onchange = () => saveSettings({ notifications: $('sNotifications').value });
@@ -799,7 +1011,8 @@ function updateLabel(update) {
   return map[update.status] ?? '';
 }
 
-function openDrawer() {
+async function openDrawer() {
+  await loadWallpapers();
   renderSettings();
   $('drawer').style.display = 'block';
   $('overlay').classList.add('open');
@@ -809,39 +1022,49 @@ function closeDrawer() {
   $('overlay').classList.remove('open');
 }
 
+
 // --- Общий рендер и события ---
 function render() {
-  renderFilters();
-  renderList();
+  renderBoard();
   renderEditor();
   if ($('drawer').style.display === 'block') renderSettings();
 
   const cloud = state.cloud || {};
   $('cloudDot').className = `dot ${!cloud.configured ? '' : cloud.signedIn ? (cloud.error ? 'warn' : 'ok') : 'warn'}`;
   $('cloudText').textContent = !cloud.configured
-    ? 'Локальный режим'
+    ? 'локально'
     : cloud.signedIn
-      ? `${cloud.email}${state.cloud.lastSyncAt ? ' · синхронизировано' : ''}`
-      : 'Облако настроено, вход не выполнен';
-  $('showDone').checked = state.showDone;
+      ? (state.cloud.lastSyncAt ? 'синхронизировано' : 'в облаке')
+      : 'нет входа';
+  $('status').title = cloud.signedIn ? `${cloud.email} · нажми, чтобы синхронизировать` : 'Аккаунт настраивается в ⚙ Настройках';
+  $('showDone').classList.toggle('on', state.showDone);
 }
 
 $('quickInput').addEventListener('input', () => { clearTimeout(previewTimer); previewTimer = setTimeout(updatePreview, 180); });
 $('quickInput').addEventListener('keydown', (event) => { if (event.key === 'Enter') quickAdd(); });
 $('quickAdd').onclick = quickAdd;
 $('search').addEventListener('input', () => { state.search = $('search').value; render(); });
-$('showDone').addEventListener('change', () => { state.showDone = $('showDone').checked; render(); });
+$('showDone').onclick = () => { state.showDone = !state.showDone; render(); };
 $('settingsButton').onclick = openDrawer;
-$('syncButton').onclick = async () => {
+$('status').onclick = async () => {
   const result = await bridge.syncNow();
   toast(result?.ok ? `Синхронизировано: ${result.pushed} отправлено, ${result.pulled} получено` : `Синхронизация не выполнена: ${result?.reason ?? result?.error ?? 'нет входа в аккаунт'}`);
 };
 $('overlay').onclick = closeDrawer;
+$('modal').addEventListener('mousedown', (event) => {
+  // Клик по затемнению вокруг окна — закрыть без сохранения.
+  if (event.target === $('modal')) { state.draft = null; state.selectedId = null; render(); }
+});
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape') closeDrawer();
+  if (event.key === 'Escape') {
+    if ($('modal').classList.contains('open')) { state.draft = null; state.selectedId = null; render(); return; }
+    closeDrawer();
+  }
   if (event.key === 'n' && event.ctrlKey) { event.preventDefault(); $('quickInput').focus(); }
 });
 
+let resizeTimer = null;
+window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(renderBoard, 120); });
 bridge.onTasksChanged((tasks) => { state.tasks = tasks || []; render(); });
 bridge.onCloudStatus((cloud) => { state.cloud = { ...state.cloud, ...cloud }; render(); });
 bridge.onUpdateStatus((update) => { state.update = update; render(); });
