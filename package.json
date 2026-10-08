@@ -1,10 +1,10 @@
 {
-  "name": "forge-tasks",
-  "version": "0.1.0",
+  "name": "lltasker",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "Forge Tasks — таск-трекер для Windows с облачной синхронизацией и напоминаниями в Telegram",
-  "author": "Forge",
+  "description": "LLTasker — таск-трекер для Windows с облачной синхронизацией и напоминаниями в Telegram",
+  "author": "AbobaCDA",
   "main": "desktop/main.js",
   "scripts": {
     "start": "electron .",
@@ -23,8 +23,8 @@
     "electron-builder": "26.15.3"
   },
   "build": {
-    "appId": "com.forge.forgetasks",
-    "productName": "Forge Tasks",
+    "appId": "com.abobacda.lltasker",
+    "productName": "LLTasker",
     "asar": true,
     "compression": "normal",
     "electronLanguages": [
@@ -64,7 +64,7 @@
       "verifyUpdateCodeSignature": false
     },
     "nsis": {
-      "artifactName": "Forge-Tasks-Setup-${version}.${ext}",
+      "artifactName": "LLTasker-Setup-${version}.${ext}",
       "include": "assets/installer.nsh",
       "installerIcon": "assets/icon.ico",
       "uninstallerIcon": "assets/icon.ico",
@@ -73,12 +73,12 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Forge Tasks",
+      "shortcutName": "LLTasker",
       "runAfterFinish": true,
       "deleteAppDataOnUninstall": false
     },
     "portable": {
-      "artifactName": "Forge-Tasks-Portable-${version}.${ext}",
+      "artifactName": "LLTasker-Portable-${version}.${ext}",
       "requestExecutionLevel": "user"
     }
   }

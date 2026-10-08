@@ -1,9 +1,9 @@
-// Локальное хранилище приложения: %APPDATA%\ForgeTasks\forge-tasks.json
+// Локальное хранилище приложения: %APPDATA%\LLTasker\lltasker.json
 // Отдельный модуль без Electron — его можно тестировать и переиспользовать.
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-export const STATE_FILE = 'forge-tasks.json';
+export const STATE_FILE = 'lltasker.json';
 export const AUTH_FILE = 'cloud-auth.bin';
 
 export const DEFAULT_SETTINGS = {

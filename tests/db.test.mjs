@@ -1,4 +1,4 @@
-// Прогон миграции Forge Tasks на настоящем PostgreSQL (PGlite, WASM) без сервера.
+// Прогон миграции LLTasker на настоящем PostgreSQL (PGlite, WASM) без сервера.
 // Проверяем: триггеры перестройки напоминаний, повторяющиеся задачи, очередь claim/lease,
 // утренний дайджест, одноразовую привязку Telegram и изоляцию RLS.
 //
@@ -217,35 +217,52 @@ const { rows: weekdayNext } = await db.query(
 check('будни: пятница → понедельник', weekdayNext[0]?.local_due?.startsWith('2026-10-12 18:00'), `получено ${weekdayNext[0]?.local_due}`);
 
 // --- Утренний дайджест ---------------------------------------------------------
+// Время фиксированное: раньше секция опиралась на реальные часы и падала
+// в окне между полуночью и digest_at (=00:05) по Москве.
 console.log('\n== Утренний дайджест ==');
+const DIGEST_NOW = new Date('2026-10-07T00:10:00+03:00');            // 00:10 МСК, позже digest_at
+const DIGEST_BEFORE = new Date('2026-10-07T00:02:00+03:00');         // 00:02 МСК, раньше digest_at
 const digestReady = (id) => db.query(
   `update public.profiles set digest_at = '00:05', digest_enabled = true, digest_last_sent_at = null,
-          digest_attempts = 0, digest_next_attempt_at = now() where id = $1`,
-  [id]
+          digest_attempts = 0, digest_next_attempt_at = $2 where id = $1`,
+  [id, DIGEST_NOW]
 );
 const addTelegram = (id, tgId) => db.query(
   `insert into public.telegram_accounts (user_id, telegram_user_id, chat_id) values ($1, $2, $2)`,
   [id, tgId]
 );
+const claimDigest = (now = DIGEST_NOW) => db.query(`select * from public.claim_due_digests(10, $1)`, [now]);
 
 await digestReady(userId);
-await db.query(`insert into public.tasks (user_id, id, title, due_at, remind_offsets) values ($1, 't-today', 'Позвонить в банк', now() - interval '1 hour', '{10}')`, [userId]);
-const { rows: digest1 } = await db.query(`select * from public.claim_due_digests(10)`);
+await db.query(
+  `insert into public.tasks (user_id, id, title, due_at, remind_offsets)
+   values ($1, 't-today', 'Позвонить в банк', '2026-10-07T18:00:00+03', '{10}')`,
+  [userId]
+);
+const { rows: digestBefore } = await claimDigest(DIGEST_BEFORE);
+check('до digest_at дайджест не уходит', digestBefore.length === 0, `получено ${digestBefore.length}`);
+const { rows: digest1 } = await claimDigest();
 check(
   'дайджест выдаётся один раз в локальный день',
   digest1.length === 1 && digest1[0].due_today >= 1 && digest1[0].local_date instanceof Date,
   JSON.stringify(digest1[0] ?? {})
 );
-const { rows: digest2 } = await db.query(`select * from public.claim_due_digests(10)`);
+const { rows: digest2 } = await claimDigest();
 check('повторный вызов дайджеста в тот же день пуст', digest2.length === 0);
-await db.query(`update public.profiles set digest_last_sent_at = now(), digest_attempts = 0 where id = $1`, [userId]);
-const { rows: digest3 } = await db.query(`select * from public.claim_due_digests(10)`);
+await db.query(`update public.profiles set digest_last_sent_at = $2, digest_attempts = 0 where id = $1`, [userId, DIGEST_NOW]);
+const { rows: digest3 } = await claimDigest();
 check('после отправки дайджест за день закрыт', digest3.length === 0);
-await db.query(`update public.profiles set digest_last_sent_at = now() - interval '1 day', digest_next_attempt_at = now() where id = $1`, [userId]);
-const { rows: digest4 } = await db.query(`select * from public.claim_due_digests(10)`);
+await db.query(
+  `update public.profiles set digest_last_sent_at = $2::timestamptz - interval '1 day', digest_next_attempt_at = $2 where id = $1`,
+  [userId, DIGEST_NOW]
+);
+const { rows: digest4 } = await claimDigest();
 check('на следующий день дайджест снова уходит', digest4.length === 1);
-await db.query(`update public.profiles set digest_enabled = false, digest_last_sent_at = now() - interval '1 day' where id = $1`, [userId]);
-const { rows: digest5 } = await db.query(`select * from public.claim_due_digests(10)`);
+await db.query(
+  `update public.profiles set digest_enabled = false, digest_last_sent_at = $2::timestamptz - interval '1 day' where id = $1`,
+  [userId, DIGEST_NOW]
+);
+const { rows: digest5 } = await claimDigest();
 check('выключенный дайджест не отправляется', digest5.length === 0);
 
 // Профиль только с просроченной задачей
@@ -253,8 +270,12 @@ const { rows: overdueUser } = await db.query(`insert into auth.users (email) val
 await db.query(`update public.profiles set access_status = 'active' where id = $1`, [overdueUser[0].id]);
 await addTelegram(overdueUser[0].id, '999002');
 await digestReady(overdueUser[0].id);
-await db.query(`insert into public.tasks (user_id, id, title, due_at) values ($1, 'late', 'Просроченное дело', now() - interval '2 days')`, [overdueUser[0].id]);
-const { rows: overdueDigest } = await db.query(`select * from public.claim_due_digests(10)`);
+await db.query(
+  `insert into public.tasks (user_id, id, title, due_at)
+   values ($1, 'late', 'Просроченное дело', $2::timestamptz - interval '2 days')`,
+  [overdueUser[0].id, DIGEST_NOW]
+);
+const { rows: overdueDigest } = await claimDigest();
 check(
   'просроченные задачи попадают в дайджест как overdue',
   overdueDigest.length === 1 && overdueDigest[0].overdue === 1 && overdueDigest[0].due_today === 0,
@@ -266,8 +287,12 @@ const { rows: emptyUser } = await db.query(`insert into auth.users (email) value
 await db.query(`update public.profiles set access_status = 'active' where id = $1`, [emptyUser[0].id]);
 await addTelegram(emptyUser[0].id, '999003');
 await digestReady(emptyUser[0].id);
-await db.query(`insert into public.tasks (user_id, id, title, due_at) values ($1, 'later', 'На следующей неделе', now() + interval '5 days')`, [emptyUser[0].id]);
-const { rows: emptyDigest } = await db.query(`select * from public.claim_due_digests(10)`);
+await db.query(
+  `insert into public.tasks (user_id, id, title, due_at)
+   values ($1, 'later', 'На следующей неделе', $2::timestamptz + interval '5 days')`,
+  [emptyUser[0].id, DIGEST_NOW]
+);
+const { rows: emptyDigest } = await claimDigest();
 check('без задач на сегодня дайджест молчит', emptyDigest.length === 0, JSON.stringify(emptyDigest));
 
 // --- Изоляция данных и настройки профиля ---------------------------------------

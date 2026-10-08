@@ -1,24 +1,49 @@
-// Главный процесс Forge Tasks: окно, трей, автозапуск, автообновление,
+// Главный процесс LLTasker: окно, трей, автозапуск, автообновление,
 // локальные напоминания Windows и синхронизация с облаком.
 import { app, BrowserWindow, Menu, Notification, Tray, ipcMain, nativeImage, shell } from 'electron';
 import { autoUpdater } from 'electron-updater';
+import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { addLocalDays, formatDue, localDateString } from '../supabase/functions/_shared/time.js';
 import { parseTaskInput } from '../supabase/functions/_shared/parser.js';
 import { computeUpcomingReminders, notificationText } from './reminders.js';
-import { createStore, queueDelete, queueUpsert } from './store.js';
+import { AUTH_FILE, STATE_FILE, createStore, queueDelete, queueUpsert } from './store.js';
 import * as cloud from './cloud.js';
 
-const APP_DATA_FOLDER = 'ForgeTasks';
+const APP_DATA_FOLDER = 'LLTasker';
+const LEGACY_DATA_FOLDER = 'ForgeTasks'; // папка версий до переименования
+const APP_ID = 'com.abobacda.lltasker';
 const SYNC_INTERVAL_MS = 60_000;
 const REMINDER_TICK_MS = 30_000;
 
-if (process.platform === 'win32' && app.isPackaged) {
-  app.setPath('userData', join(app.getPath('appData'), APP_DATA_FOLDER));
+if (process.platform === 'win32') {
+  // Без этого Windows-уведомления в собранном приложении приходят от «electron.app.…»,
+  // а не от LLTasker, и могут не показываться вовсе.
+  app.setAppUserModelId(APP_ID);
+  if (app.isPackaged) app.setPath('userData', join(app.getPath('appData'), APP_DATA_FOLDER));
+}
+
+/** Однократный перенос данных версий до переименования: %APPDATA%\ForgeTasks -> %APPDATA%\LLTasker. */
+function importLegacyData() {
+  if (process.platform !== 'win32' || !app.isPackaged) return;
+  try {
+    const target = join(app.getPath('userData'), STATE_FILE);
+    if (existsSync(target)) return;
+    const legacy = join(app.getPath('appData'), LEGACY_DATA_FOLDER, 'forge-tasks.json');
+    if (!existsSync(legacy)) return;
+    mkdirSync(app.getPath('userData'), { recursive: true });
+    copyFileSync(legacy, target);
+    const legacyAuth = join(app.getPath('appData'), LEGACY_DATA_FOLDER, AUTH_FILE);
+    if (existsSync(legacyAuth)) copyFileSync(legacyAuth, join(app.getPath('userData'), AUTH_FILE));
+    console.log('Перенесены данные из прошлой версии:', legacy, '->', target);
+  } catch (error) {
+    console.warn('Не удалось перенести данные прошлой версии:', error?.message ?? error);
+  }
 }
 
 const directory = fileURLToPath(new URL('.', import.meta.url));
+importLegacyData();
 const store = createStore(app.getPath('userData'));
 
 let mainWindow = null;
@@ -215,11 +240,11 @@ function createTray() {
   let image = nativeImage.createFromPath(iconPath);
   if (image.isEmpty()) image = nativeImage.createEmpty();
   tray = new Tray(image.resize({ width: 16, height: 16 }));
-  tray.setToolTip('Forge Tasks');
+  tray.setToolTip('LLTasker');
   const menu = Menu.buildFromTemplate([
-    { label: 'Открыть Forge Tasks', click: () => { mainWindow?.show(); mainWindow?.focus(); } },
+    { label: 'Открыть LLTasker', click: () => { mainWindow?.show(); mainWindow?.focus(); } },
     { label: 'Синхронизировать сейчас', click: () => syncNow({ silent: false }) },
-    { label: 'Начать с Windows', type: 'checkbox', checked: app.getLoginItemSettings().openAtLogin, click: (item) => setStartup(item.checked) },
+    { label: 'Начать с Windows', type: 'checkbox', checked: startupEnabled(), click: (item) => setStartup(item.checked) },
     { type: 'separator' },
     { label: 'Выход', click: () => { app.isQuitting = true; app.quit(); } },
   ]);
@@ -227,10 +252,17 @@ function createTray() {
   tray.on('click', () => { mainWindow?.show(); mainWindow?.focus(); });
 }
 
+function startupEnabled() {
+  if (process.platform !== 'win32') return false;
+  // Важно: путь и аргументы должны совпадать с теми, что передавались при включении,
+  // иначе Windows не находит запись и всегда отвечает «выключено».
+  return app.getLoginItemSettings({ path: process.execPath, args: ['--hidden'] }).openAtLogin;
+}
+
 function setStartup(enabled) {
   if (process.platform !== 'win32') return { enabled: false, unsupported: true };
   app.setLoginItemSettings({ openAtLogin: Boolean(enabled), path: process.execPath, args: ['--hidden'] });
-  return { enabled: app.getLoginItemSettings().openAtLogin };
+  return { enabled: startupEnabled() };
 }
 
 // --- IPC -----------------------------------------------------------------------
@@ -252,7 +284,7 @@ function registerIpc() {
       pending: { upserts: Object.keys(state.pending.upserts).length, deletes: state.pending.deletes.length },
       cloud: await currentCloudState(),
       update: updateState,
-      startup: process.platform === 'win32' ? app.getLoginItemSettings().openAtLogin : false,
+      startup: startupEnabled(),
     };
   });
 

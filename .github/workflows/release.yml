@@ -85,7 +85,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: forge-tasks-${{ github.ref_name || 'manual' }}
+          name: lltasker-${{ github.ref_name || 'manual' }}
           if-no-files-found: warn
           path: |
             release/*.exe
@@ -100,7 +100,7 @@ jobs:
         run: |
           $version = node -p "require('./package.json').version"
           $tag = "v$version"
-          $setup = "release/Forge-Tasks-Setup-$version.exe"
+          $setup = "release/LLTasker-Setup-$version.exe"
           $assets = @($setup, "${setup}.blockmap", "release/latest.yml")
 
           foreach ($asset in $assets) {
@@ -110,7 +110,7 @@ jobs:
           gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
           if ($LASTEXITCODE -ne 0) {
             Write-Host "Релиза $tag ещё нет — создаю."
-            gh release create $tag --repo $env:GITHUB_REPOSITORY --title "Forge Tasks $version" --generate-notes
+            gh release create $tag --repo $env:GITHUB_REPOSITORY --title "LLTasker $version" --generate-notes
             if ($LASTEXITCODE -ne 0) { throw "Не удалось создать релиз $tag" }
           } else {
             Write-Host "Релиз $tag уже существует — обновляю файлы."

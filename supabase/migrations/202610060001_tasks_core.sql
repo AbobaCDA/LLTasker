@@ -1,4 +1,4 @@
--- Forge Tasks — ядро схемы: профили, задачи, очередь напоминаний, привязка Telegram.
+-- LLTasker — ядро схемы: профили, задачи, очередь напоминаний, привязка Telegram.
 -- Применять в Supabase SQL Editor. Файл безопасно запускать повторно.
 --
 -- Отличия от LTT: вместо персонажей и «смен» — задачи с дедлайном, набором смещений
@@ -480,7 +480,11 @@ grant execute on function public.claim_due_task_reminders(integer) to service_ro
 
 -- Утренний дайджест: одна попытка на локальный день пользователя, только если есть
 -- что показать (задачи на сегодня или просроченные).
-create or replace function public.claim_due_digests(p_limit integer default 50)
+-- Параметр p_now добавлен для детерминированных проверок (тесты подставляют фиксированное время);
+-- боевые вызовы его не передают и работают по настоящим часам, как раньше.
+drop function if exists public.claim_due_digests(integer);
+
+create or replace function public.claim_due_digests(p_limit integer default 50, p_now timestamptz default now())
 returns table (
   user_id uuid,
   telegram_chat_id text,
@@ -501,18 +505,18 @@ begin
       join public.telegram_accounts ta on ta.user_id = p.id
      where p.access_status = 'active'
        and p.digest_enabled
-       and p.digest_next_attempt_at <= now()
-       and (now() at time zone p.timezone)::time >= p.digest_at
+       and p.digest_next_attempt_at <= p_now
+       and (p_now at time zone p.timezone)::time >= p.digest_at
        and (
          p.digest_last_sent_at is null
-         or (p.digest_last_sent_at at time zone p.timezone)::date < (now() at time zone p.timezone)::date
+         or (p.digest_last_sent_at at time zone p.timezone)::date < (p_now at time zone p.timezone)::date
        )
        and exists (
          select 1 from public.tasks t
           where t.user_id = p.id
             and t.status = 'open'
             and t.due_at is not null
-            and (t.due_at at time zone p.timezone)::date <= (now() at time zone p.timezone)::date
+            and (t.due_at at time zone p.timezone)::date <= (p_now at time zone p.timezone)::date
        )
      order by p.id
      limit greatest(1, least(coalesce(p_limit, 50), 200))
@@ -520,31 +524,31 @@ begin
   ), claimed as (
     update public.profiles p
        set digest_attempts = p.digest_attempts + 1,
-           digest_next_attempt_at = now() + interval '5 minutes'
+           digest_next_attempt_at = p_now + interval '5 minutes'
       from candidates c
      where p.id = c.id
     returning p.*
   )
-  select claimed.id, ta.chat_id, claimed.timezone, (now() at time zone claimed.timezone)::date,
+  select claimed.id, ta.chat_id, claimed.timezone, (p_now at time zone claimed.timezone)::date,
          (select count(*)::integer
             from public.tasks t
            where t.user_id = claimed.id
              and t.status = 'open'
              and t.due_at is not null
-             and (t.due_at at time zone claimed.timezone)::date = (now() at time zone claimed.timezone)::date),
+             and (t.due_at at time zone claimed.timezone)::date = (p_now at time zone claimed.timezone)::date),
          (select count(*)::integer
             from public.tasks t
            where t.user_id = claimed.id
              and t.status = 'open'
              and t.due_at is not null
-             and (t.due_at at time zone claimed.timezone)::date < (now() at time zone claimed.timezone)::date)
+             and (t.due_at at time zone claimed.timezone)::date < (p_now at time zone claimed.timezone)::date)
     from claimed
     join public.telegram_accounts ta on ta.user_id = claimed.id;
 end;
 $$;
 
-revoke all on function public.claim_due_digests(integer) from public, anon, authenticated;
-grant execute on function public.claim_due_digests(integer) to service_role;
+revoke all on function public.claim_due_digests(integer, timestamptz) from public, anon, authenticated;
+grant execute on function public.claim_due_digests(integer, timestamptz) to service_role;
 
 -- Служебная сводка для владельца: /stats в боте.
 create or replace function public.owner_stats()

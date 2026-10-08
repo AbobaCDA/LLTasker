@@ -1,4 +1,4 @@
-project_id = "forge-tasks"
+project_id = "lltasker"
 
 [functions.telegram-bot]
 verify_jwt = false

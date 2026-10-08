@@ -62,12 +62,14 @@ export function localTimeString(iso, timeZone) {
 
 /** Человеческое представление срока: «сегодня 18:30», «завтра», «06.10 19:30».
  * @param {string | null} iso @param {string} timeZone @param {boolean} [allDay] @returns {string} */
-export function formatDue(iso, timeZone, allDay = false) {
+export function formatDue(iso, timeZone, allDay = false, reference = new Date()) {
   if (!iso) return "без срока";
   const date = new Date(iso);
-  const today = localDateString(new Date(), timeZone);
+  // reference — «сегодня» для подписей «сегодня/завтра». Параметр добавлен для тестов:
+  // иначе подписи зависят от реальных суток и проверки падают после полуночи по Москве.
+  const today = localDateString(reference, timeZone);
   const target = localDateString(date, timeZone);
-  const tomorrow = localDateString(addLocalDays(new Date(), 1, timeZone, 12, 0), timeZone);
+  const tomorrow = localDateString(addLocalDays(reference, 1, timeZone, 12, 0), timeZone);
   const label = target === today
     ? "сегодня"
     : target === tomorrow

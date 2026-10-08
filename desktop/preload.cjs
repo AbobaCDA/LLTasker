@@ -9,7 +9,7 @@ const channels = {
   onFocusTask: 'tasks:focus',
 };
 
-contextBridge.exposeInMainWorld('forge', {
+contextBridge.exposeInMainWorld('lltasker', {
   info: () => ipcRenderer.invoke('app:info'),
   load: () => ipcRenderer.invoke('tasks:load'),
   save: (tasks) => ipcRenderer.invoke('tasks:save', tasks),

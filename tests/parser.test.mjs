@@ -116,11 +116,11 @@ group('Даты и время');
 }
 {
   const t = parse('созвон завтра 18:00', 'America/New_York');
-  check('другой часовой пояс: формат для Нью-Йорка', formatDue(t.dueAt, 'America/New_York') === 'завтра 18:00', formatDue(t.dueAt, 'America/New_York'));
+  check('другой часовой пояс: формат для Нью-Йорка', formatDue(t.dueAt, 'America/New_York', false, NOW) === 'завтра 18:00', formatDue(t.dueAt, 'America/New_York', false, NOW));
   // 18:00 в Нью-Йорке — это 01:00 следующего дня по Москве.
-  check('тот же момент в Москве — уже другие сутки', t.dueAt === iso(new Date('2026-10-07T22:00:00Z')) && formatDue(t.dueAt, MSK).startsWith('08.10'), formatDue(t.dueAt, MSK));
+  check('тот же момент в Москве — уже другие сутки', t.dueAt === iso(new Date('2026-10-07T22:00:00Z')) && formatDue(t.dueAt, MSK, false, NOW).startsWith('08.10'), formatDue(t.dueAt, MSK, false, NOW));
   const berlin = parse('встреча завтра 09:00', 'Europe/Berlin');
-  check('Europe/Berlin: локальное время сохранено', formatDue(berlin.dueAt, 'Europe/Berlin') === 'завтра 09:00', formatDue(berlin.dueAt, 'Europe/Berlin'));
+  check('Europe/Berlin: локальное время сохранено', formatDue(berlin.dueAt, 'Europe/Berlin', false, NOW) === 'завтра 09:00', formatDue(berlin.dueAt, 'Europe/Berlin', false, NOW));
   const utc = parse('созвон завтра 12:00', UTC);
   check('UTC: полдень остаётся полднем', utc.dueAt === iso(new Date('2026-10-07T12:00:00Z')), String(utc.dueAt));
 }
@@ -154,7 +154,7 @@ group('Наборы напоминаний');
 
 group('Утилиты времени');
 {
-  check('addLocalDays сохраняет локальное время', formatDue(addLocalDays(NOW, 1, MSK, 9, 30).toISOString(), MSK) === 'завтра 09:30', formatDue(addLocalDays(NOW, 1, MSK, 9, 30).toISOString(), MSK));
+  check('addLocalDays сохраняет локальное время', formatDue(addLocalDays(NOW, 1, MSK, 9, 30).toISOString(), MSK, false, NOW) === 'завтра 09:30', formatDue(addLocalDays(NOW, 1, MSK, 9, 30).toISOString(), MSK, false, NOW));
   check('переход на летнее время не сдвигает локальные сутки', localDateString(addLocalDays(new Date('2027-03-27T12:00:00Z'), 1, 'Europe/Berlin', 9, 0), 'Europe/Berlin') === '2027-03-28');
 }
 

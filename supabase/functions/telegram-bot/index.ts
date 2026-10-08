@@ -316,7 +316,7 @@ async function sendTaskList(chatId: string, userId: string, timeZone: string, fi
 }
 
 const HELP = [
-  "Forge Tasks в Telegram.",
+  "LLTasker в Telegram.",
   "",
   "Быстрый ввод — просто отправь текст:",
   "«оплатить хостинг завтра 18:30 !2 #работа за день»",
@@ -369,7 +369,7 @@ async function handleCommand(message: Record<string, any>, command: string, args
     });
     await sendMessage(
       chatId,
-      `Код привязки: ${code}\n\nОн действует ${SESSION_TTL_MINUTES} минут.\nОткрой приложение Forge Tasks → «Аккаунт» → введи этот код. Привязка произойдёт автоматически.`,
+      `Код привязки: ${code}\n\nОн действует ${SESSION_TTL_MINUTES} минут.\nОткрой приложение LLTasker → «Аккаунт» → введи этот код. Привязка произойдёт автоматически.`,
     );
     return;
   }

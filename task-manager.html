@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:;" />
-<title>Forge Tasks</title>
+<title>LLTasker</title>
 <style>
   :root {
     --bg: #12151c;
@@ -128,7 +128,7 @@
 <body>
 <div class="app">
   <aside class="sidebar">
-    <div class="brand"><span class="logo">✦</span> Forge Tasks <span class="badge" id="version"></span></div>
+    <div class="brand"><span class="logo">✦</span> LLTasker <span class="badge" id="version"></span></div>
     <nav class="nav" id="filters"></nav>
     <div class="side-title">Проекты</div>
     <div class="projects" id="projects"><span class="hint">Пока нет проектов</span></div>
@@ -168,7 +168,7 @@
 <script>
 // Без Electron (например, при простом открытии файла) интерфейс работает в демо-режиме:
 // так видно вёрстку и поведение без сборки приложения.
-const DEMO = !window.forge;
+const DEMO = !window.lltasker;
 function demoTasks() {
   const utc = (days, hour, minute) => {
     const base = new Date();
@@ -218,7 +218,7 @@ const demoBridge = {
   onUpdateStatus: () => {},
   onFocusTask: () => {},
 };
-const bridge = window.forge ?? demoBridge;
+const bridge = window.lltasker ?? demoBridge;
 
 const state = {
   tasks: [],

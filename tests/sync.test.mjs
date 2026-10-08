@@ -69,7 +69,7 @@ group('Слияние локального и облачного');
 
 group('Локальное хранилище');
 {
-  const directory = mkdtempSync(join(tmpdir(), 'forge-store-'));
+  const directory = mkdtempSync(join(tmpdir(), 'lltasker-store-'));
   const store = createStore(directory);
   check('пустое хранилище даёт настройки по умолчанию', store.read().settings.timezone === DEFAULT_SETTINGS.timezone);
   store.write({ ...store.read(), tasks: [task('x')] });

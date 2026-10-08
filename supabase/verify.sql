@@ -1,7 +1,7 @@
--- Forge Tasks — проверка развёртывания.
+-- LLTasker — проверка развёртывания.
 -- Запускайте блоки по одному в Supabase → SQL Editor → New query.
 -- Если блок падает с ошибкой «relation cron.job does not exist» — расширение ещё не включено,
--- это и есть ответ на вопрос (см. шаг 2.9 инструкции).
+-- это и есть ответ на вопрос (расширения включаются в шаге 2.12 инструкции).
 
 -- ── Блок 1. Схема: таблицы, триггеры, RPC ─────────────────────────────────────
 select
@@ -58,7 +58,7 @@ order by p.created_at;
 -- ── Блок 5. Cron-задание (нужны расширения pg_cron и pg_net) ──────────────────
 select jobname, schedule, active, left(command, 60) as "команда"
 from cron.job
-where jobname = 'forge-tasks-reminders';
+where jobname = 'lltasker-reminders';
 -- Ожидаемо: одна строка, schedule = * * * * *, active = true.
 
 -- ── Блок 6. Журнал запусков cron ──────────────────────────────────────────────
@@ -76,5 +76,5 @@ limit 10;
 -- ── Блок 7. Секрет в Vault ────────────────────────────────────────────────────
 select name, description, created_at
 from vault.secrets
-where name = 'forge_tasks_cron_secret';
+where name = 'lltasker_cron_secret';
 -- Значение не показывается специально: сравнить его можно только на стороне Vault и Edge Secrets.

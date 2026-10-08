@@ -15,9 +15,16 @@ if not exist package.json (
 )
 
 echo Before:
-node -p "JSON.stringify({builder:require('./package.json').devDependencies['electron-builder'], electron:require('./package.json').devDependencies.electron, publish:require('./package.json').build.publish && require('./package.json').build.publish[0]}, null, 2)"
+node -p "JSON.stringify({name:require('./package.json').name, productName:require('./package.json').build.productName, appId:require('./package.json').build.appId, builder:require('./package.json').devDependencies['electron-builder'], electron:require('./package.json').devDependencies.electron, publish:require('./package.json').build.publish && require('./package.json').build.publish[0]}, null, 2)"
 echo.
 
+npm pkg set name=lltasker
+npm pkg set author=AbobaCDA
+npm pkg set build.appId=com.abobacda.lltasker
+npm pkg set build.productName=LLTasker
+npm pkg set "build.nsis.artifactName=LLTasker-Setup-${version}.${ext}"
+npm pkg set "build.nsis.shortcutName=LLTasker"
+npm pkg set "build.portable.artifactName=LLTasker-Portable-${version}.${ext}"
 npm pkg set devDependencies.electron-builder=26.15.3
 npm pkg set devDependencies.electron=44.5.1
 npm pkg set dependencies.electron-updater=6.8.9
@@ -29,7 +36,7 @@ npm pkg set "scripts.dist:win=electron-builder --win nsis --x64 --publish never"
 
 echo.
 echo After:
-node -p "JSON.stringify({builder:require('./package.json').devDependencies['electron-builder'], electron:require('./package.json').devDependencies.electron, publish:require('./package.json').build.publish && require('./package.json').build.publish[0]}, null, 2)"
+node -p "JSON.stringify({name:require('./package.json').name, productName:require('./package.json').build.productName, appId:require('./package.json').build.appId, builder:require('./package.json').devDependencies['electron-builder'], electron:require('./package.json').devDependencies.electron, publish:require('./package.json').build.publish && require('./package.json').build.publish[0]}, null, 2)"
 echo.
 echo Scripts:
 node -p "JSON.stringify(require('./package.json').scripts, null, 2)"
