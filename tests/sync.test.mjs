@@ -1,5 +1,5 @@
 // Тесты слияния локальных и облачных задач + хранилища. Запуск: node tests/sync.test.mjs
-import { mergeTasks, collectOutgoing, toCloudRow, CLOUD_FIELDS } from '../desktop/sync-merge.js';
+import { mergeTasks, collectOutgoing, toCloudRow, CLOUD_FIELDS, reconcileAfterSync } from '../desktop/sync-merge.js';
 import { createStore, normalizeState, queueDelete, queueUpsert, DEFAULT_SETTINGS } from '../desktop/store.js';
 import { mkdtempSync, writeFileSync, readdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -97,6 +97,36 @@ group('Локальное хранилище');
 }
 
 console.log('\n' + '='.repeat(52));
+
+group('Правки во время синхронизации не теряются');
+{
+  // Снимок на старте синхронизации: a и b, без очереди.
+  const snapshot = { tasks: [task('a', { due_at: '2026-10-08T10:00:00Z' }), task('b')], pending: { upserts: {}, deletes: [] } };
+  // Пока шёл запрос: a перетащили на другой день, появилась новая c, b удалили.
+  const current = {
+    tasks: [task('a', { due_at: '2026-10-09T10:00:00Z', updated_at: '2026-10-08T12:00:00Z', dirty: true }), task('c', { updated_at: '2026-10-08T12:00:01Z', dirty: true })],
+    pending: { upserts: {}, deletes: ['b'] },
+  };
+  // Облако вернуло старую a и b (оно про правки ещё не знает).
+  const fromCloud = [task('a', { due_at: '2026-10-08T10:00:00Z', synced: true, dirty: false }), task('b', { synced: true, dirty: false })];
+  const result = reconcileAfterSync(snapshot, current, fromCloud);
+  const byId = Object.fromEntries(result.tasks.map((item) => [item.id, item]));
+  check('перетаскивание сохранилось (срок не откатился)', byId.a?.due_at === '2026-10-09T10:00:00Z', byId.a?.due_at);
+  check('перетащенная задача снова в очереди на отправку', byId.a?.dirty === true && result.pending.upserts.a);
+  check('новая задача не пропала', Boolean(byId.c) && Boolean(result.pending.upserts.c));
+  check('удалённая во время синхронизации не воскресла', !byId.b && result.pending.deletes.includes('b'));
+  check('счётчик изменений: a, c и удаление b', result.changedDuringSync === 3, String(result.changedDuringSync));
+}
+{
+  // Ничего не менялось во время синхронизации — берём ответ облака как есть.
+  const snapshot = { tasks: [task('a', { title: 'Старое' })], pending: { upserts: {}, deletes: [] } };
+  const current = { tasks: snapshot.tasks, pending: snapshot.pending };
+  const fromCloud = [task('a', { title: 'Новое из облака', updated_at: '2026-10-08T13:00:00Z', synced: true })];
+  const result = reconcileAfterSync(snapshot, current, fromCloud);
+  check('без правок — обновление из облака применяется', result.tasks[0].title === 'Новое из облака');
+  check('очередь пуста', Object.keys(result.pending.upserts).length === 0 && result.pending.deletes.length === 0 && result.changedDuringSync === 0);
+}
+
 if (failures.length) {
   console.log(`Провалено: ${failures.length}, пройдено: ${passed}`);
   failures.forEach((f) => console.log(` - ${f}`));

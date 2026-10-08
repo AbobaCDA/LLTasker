@@ -15,6 +15,8 @@ import { parseTaskInput } from '../supabase/functions/_shared/parser.js';
 import { computeUpcomingReminders, notificationText } from './reminders.js';
 import { AUTH_FILE, STATE_FILE, createStore, queueDelete, queueUpsert } from './store.js';
 import * as cloud from './cloud.js';
+import { reconcileAfterSync } from './sync-merge.js';
+import { createLogger, describeChanges, describeTask } from './logger.js';
 
 const APP_DATA_FOLDER = 'LLTasker';
 const LEGACY_DATA_FOLDER = 'ForgeTasks'; // папка версий до переименования
@@ -50,6 +52,11 @@ function importLegacyData() {
 const directory = fileURLToPath(new URL('.', import.meta.url));
 importLegacyData();
 const store = createStore(app.getPath('userData'));
+const logger = createLogger(join(app.getPath('userData'), 'logs'));
+/** Запись в журнал действий (никогда не бросает). */
+function log(event, details = '') { logger.log(event, details); }
+/** Срок задачи для журнала — в часовом поясе из настроек. */
+function dueForLog(iso, allDay) { return formatDue(iso, settings().timezone || 'Europe/Moscow', allDay); }
 
 let mainWindow = null;
 let tray = null;
@@ -120,6 +127,7 @@ function showReminder(reminder, timeZone) {
 
   const dueLabel = formatDue(task.due_at, timeZone, task.all_day);
   const { title, body } = notificationText(reminder, dueLabel, task.project);
+  log('напоминание показано', `${describeTask(task)} · ${dueLabel}`);
   if (Notification.isSupported()) {
     const notification = new Notification({ title, body, silent: false });
     notification.on('click', () => {
@@ -140,8 +148,13 @@ function showReminder(reminder, timeZone) {
 
 // --- Синхронизация -------------------------------------------------------------
 
+let syncQueued = false;
 async function syncNow({ silent = true } = {}) {
-  if (syncInFlight) return { ok: false, reason: 'busy' };
+  if (syncInFlight) {
+    // Кто-то сохранил задачи, пока идёт синхронизация: повторим сразу после неё.
+    syncQueued = true;
+    return { ok: false, reason: 'busy' };
+  }
   const state = store.read();
   cloud.configure(state.settings);
   if (!cloud.isConfigured()) {
@@ -158,15 +171,24 @@ async function syncNow({ silent = true } = {}) {
       deletes: state.pending.deletes,
       upsertIds: Object.keys(state.pending.upserts),
     });
+    let changedDuringSync = 0;
     store.update((draft) => {
-      draft.tasks = result.tasks;
-      draft.pending = { upserts: {}, deletes: [] };
+      // Пока ходили в облако, пользователь мог что-то поменять: снимок `state` сделан до запроса,
+      // всё, что изменилось после него, важнее ответа облака (иначе перетаскивания «отпрыгивали» назад).
+      const reconciled = reconcileAfterSync(state, draft, result.tasks);
+      changedDuringSync = reconciled.changedDuringSync;
+      draft.tasks = reconciled.tasks;
+      draft.pending = reconciled.pending;
       draft.sync = { ...draft.sync, lastPushAt: result.syncedAt, userId: cloudState.userId, status: 'ok', message: '' };
       return draft;
     });
+    if (changedDuringSync > 0) syncQueued = true;
     rescheduleReminders();
     sendToWindow('tasks:changed', store.read().tasks);
     sendToWindow('cloud:status', { ...(await currentCloudState()), sync: 'idle', lastSyncAt: result.syncedAt });
+    if (result.pushed > 0 || result.deleted > 0 || result.removedLocally > 0) {
+      log('синхронизация', `отправлено ${result.pushed}, удалено ${result.deleted}, получено ${result.pulled}`);
+    }
     return { ok: true, ...result };
   } catch (error) {
     const message = String(error?.message ?? error);
@@ -176,9 +198,14 @@ async function syncNow({ silent = true } = {}) {
       return draft;
     });
     sendToWindow('cloud:status', { ...(await currentCloudState()), sync: 'error', error: message });
+    log('ошибка синхронизации', message);
     return { ok: false, error: message };
   } finally {
     syncInFlight = false;
+    if (syncQueued) {
+      syncQueued = false;
+      setTimeout(() => syncNow({ silent: true }).catch(() => {}), 50);
+    }
   }
 }
 
@@ -226,8 +253,8 @@ autoUpdater.on('checking-for-update', () => sendUpdateStatus('checking'));
 autoUpdater.on('update-available', (info) => sendUpdateStatus('available', { version: info?.version ?? null }));
 autoUpdater.on('update-not-available', () => sendUpdateStatus('current'));
 autoUpdater.on('download-progress', (progress) => sendUpdateStatus('downloading', { percent: Math.round(Number(progress?.percent ?? 0)) }));
-autoUpdater.on('update-downloaded', (info) => sendUpdateStatus('ready', { version: info?.version ?? null }));
-autoUpdater.on('error', (error) => sendUpdateStatus('error', { error: String(error?.message ?? error) }));
+autoUpdater.on('update-downloaded', (info) => { log('обновление скачано', String(info?.version ?? '')); sendUpdateStatus('ready', { version: info?.version ?? null }); });
+autoUpdater.on('error', (error) => { log('ошибка обновления', String(error?.message ?? error)); sendUpdateStatus('error', { error: String(error?.message ?? error) }); });
 
 // --- Окно, трей, автозапуск ----------------------------------------------------
 
@@ -255,6 +282,7 @@ function createWindow() {
     if (app.isQuitting) return;
     event.preventDefault();
     mainWindow.hide();
+    log('окно свёрнуто в трей');
   });
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
@@ -326,6 +354,12 @@ function registerIpc() {
         const previous = previousById.get(task.id);
         const changed = !previous || previous.updated_at !== task.updated_at || sectionChanged(previous, task);
         if (changed) draft.pending = queueUpsert(draft.pending, { ...task, dirty: true, synced: false });
+        if (!previous) {
+          log('задача добавлена', `${describeTask(task)} · ${task.due_at ? dueForLog(task.due_at, task.all_day) : 'без срока'}${task.project ? ` · #${task.project}` : ''}`);
+        } else if (changed) {
+          const changes = describeChanges(previous, task, dueForLog);
+          if (changes.length) log('задача изменена', `${describeTask(task)} · ${changes.join('; ')}`);
+        }
       }
       return draft;
     });
@@ -335,6 +369,7 @@ function registerIpc() {
   });
 
   ipcMain.handle('tasks:delete', async (_event, taskId) => {
+    log('задача удалена', describeTask(store.read().tasks.find((task) => task.id === String(taskId))) || String(taskId));
     store.update((draft) => {
       draft.tasks = draft.tasks.filter((task) => task.id !== String(taskId));
       draft.pending = queueDelete(draft.pending, String(taskId));
@@ -363,6 +398,8 @@ function registerIpc() {
   });
 
   ipcMain.handle('settings:save', async (_event, patch) => {
+    const shown = Object.entries(patch ?? {}).map(([key, value]) => `${key}=${key === 'supabaseKey' ? '…' : String(value)}`).join(', ');
+    if (shown) log('настройки изменены', shown);
     const state = store.update((draft) => {
       draft.settings = { ...draft.settings, ...(patch ?? {}) };
       return draft;
@@ -383,11 +420,13 @@ function registerIpc() {
   ipcMain.handle('cloud:sign-up', async (_event, email, password) => {
     cloud.configure(settings());
     const result = await cloud.signUp(email, password);
+    log('аккаунт создан', String(email).trim());
     return { ...result, state: await currentCloudState() };
   });
   ipcMain.handle('cloud:sign-in', async (_event, email, password) => {
     cloud.configure(settings());
     await cloud.signIn(email, password);
+    log('вход в аккаунт', String(email).trim());
     const state = await currentCloudState();
     if (state.signedIn) syncNow({ silent: true }).catch(() => {});
     return state;
@@ -395,22 +434,30 @@ function registerIpc() {
   ipcMain.handle('cloud:sign-out', async () => {
     cloud.configure(settings());
     await cloud.signOut();
+    log('выход из аккаунта');
     return currentCloudState();
   });
   ipcMain.handle('cloud:sync', () => syncNow({ silent: false }));
   ipcMain.handle('cloud:link-telegram', async (_event, code) => {
     cloud.configure(settings());
     const result = await cloud.linkTelegram(code);
+    log('Telegram привязан');
     return { ...result, state: await currentCloudState() };
   });
 
-  ipcMain.handle('startup:set', (_event, enabled) => setStartup(enabled));
+  ipcMain.handle('startup:set', (_event, enabled) => { log('автозапуск', enabled ? 'включён' : 'выключен'); return setStartup(enabled); });
   ipcMain.handle('updates:check', () => checkForUpdates());
   ipcMain.handle('updates:install', () => {
     app.isQuitting = true;
     autoUpdater.quitAndInstall();
   });
   ipcMain.handle('shell:open-data-folder', () => shell.openPath(app.getPath('userData')));
+
+  // --- Журнал действий ---
+  ipcMain.handle('log:write', (_event, event, details) => { log(String(event ?? '').slice(0, 80), String(details ?? '').slice(0, 500)); return true; });
+  ipcMain.handle('log:tail', (_event, limit) => ({ lines: logger.tail(Number(limit) || 300), file: logger.currentFile(), directory: logger.directory }));
+  ipcMain.handle('log:open-file', () => { if (!existsSync(logger.currentFile())) log('журнал открыт'); return shell.openPath(logger.currentFile()); });
+  ipcMain.handle('log:open-folder', () => { if (!existsSync(logger.directory)) mkdirSync(logger.directory, { recursive: true }); return shell.openPath(logger.directory); });
 
   // --- Обои: своя картинка копируется в папку данных и отдаётся интерфейсу как data URL ---
   ipcMain.handle('wallpaper:get', () => ({ forest: forestWallpaperDataUrl(), custom: customWallpaperDataUrl() }));
@@ -439,6 +486,7 @@ function registerIpc() {
       draft.settings = { ...draft.settings, wallpaper: 'custom', wallpaperFile: fileName };
       return draft;
     });
+    log('фон выбран', source);
     return { ok: true, settings: state.settings, dataUrl: customWallpaperDataUrl() };
   });
   ipcMain.handle('window:hide', () => mainWindow?.hide());
@@ -462,6 +510,7 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.whenReady().then(async () => {
+    log('приложение запущено', `версия ${app.getVersion()}${process.argv.includes('--hidden') ? ' · скрыто (автозапуск)' : ''}`);
     registerIpc();
     createWindow();
     createTray();
@@ -479,6 +528,7 @@ if (!app.requestSingleInstanceLock()) {
 
   app.on('before-quit', () => {
     app.isQuitting = true;
+    log('приложение закрыто');
   });
 
   app.on('window-all-closed', () => {

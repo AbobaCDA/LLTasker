@@ -31,6 +31,10 @@ contextBridge.exposeInMainWorld('lltasker', {
   installUpdate: () => ipcRenderer.invoke('updates:install'),
   openDataFolder: () => ipcRenderer.invoke('shell:open-data-folder'),
   getWallpaper: () => ipcRenderer.invoke('wallpaper:get'),
+  log: (event, details) => ipcRenderer.invoke('log:write', event, details),
+  logTail: (limit) => ipcRenderer.invoke('log:tail', limit),
+  openLogFile: () => ipcRenderer.invoke('log:open-file'),
+  openLogFolder: () => ipcRenderer.invoke('log:open-folder'),
   chooseWallpaper: () => ipcRenderer.invoke('wallpaper:choose'),
   hideWindow: () => ipcRenderer.invoke('window:hide'),
 

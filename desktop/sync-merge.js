@@ -103,3 +103,30 @@ export function toCloudRow(task, userId) {
 export function fromCloudRow(task) {
   return { ...task, dirty: false, synced: true };
 }
+
+/**
+ * Применяет результат синхронизации, не теряя правок, сделанных пока шёл запрос.
+ * `snapshot` — состояние (tasks, pending) на момент начала синхронизации,
+ * `current` — состояние сейчас, `resultTasks` — что вернула синхронизация.
+ * Всё, что изменилось после снимка (новый updated_at, новая задача, новое удаление), важнее ответа облака
+ * и остаётся в очереди на следующую синхронизацию.
+ */
+export function reconcileAfterSync(snapshot, current, resultTasks) {
+  const before = new Map((snapshot.tasks ?? []).map((task) => [task.id, task]));
+  const now = new Map((current.tasks ?? []).map((task) => [task.id, task]));
+  const snapshotDeletes = snapshot.pending?.deletes ?? [];
+  const newDeletes = (current.pending?.deletes ?? []).filter((id) => !snapshotDeletes.includes(id));
+  const keepLocal = new Map();
+  for (const [id, task] of now) {
+    const previous = before.get(id);
+    if (!previous || previous.updated_at !== task.updated_at) keepLocal.set(id, { ...task, dirty: true, synced: false });
+  }
+  const merged = resultTasks.map((task) => keepLocal.get(task.id) ?? task);
+  const present = new Set(merged.map((task) => task.id));
+  for (const [id, task] of keepLocal) if (!present.has(id)) merged.push(task);
+  return {
+    tasks: merged.filter((task) => !newDeletes.includes(task.id)),
+    pending: { upserts: Object.fromEntries(Array.from(keepLocal.values()).map((task) => [task.id, task])), deletes: newDeletes },
+    changedDuringSync: keepLocal.size + newDeletes.length,
+  };
+}
