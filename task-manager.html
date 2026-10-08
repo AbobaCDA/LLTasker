@@ -231,6 +231,7 @@ const state = {
   project: null,
   search: '',
   selectedId: null,
+  draft: null, // несохранённые правки открытой карточки: { taskId, title, notes, date, time, priority, recurrence, project, tags, remind_offsets }
   showDone: false,
 };
 
@@ -450,7 +451,7 @@ function renderList() {
     button.onclick = (event) => { event.stopPropagation(); toggleDone(button.dataset.toggle); };
   });
   $('list').querySelectorAll('[data-select]').forEach((element) => {
-    element.onclick = () => { state.selectedId = element.dataset.select; render(); };
+    element.onclick = () => { selectTask(element.dataset.select); };
   });
 }
 
@@ -478,33 +479,48 @@ function renderEditor() {
   }
   const timeZone = state.settings.timezone || 'Europe/Moscow';
   const p = task.due_at ? parts(task.due_at, timeZone) : null;
-  const dateValue = p ? `${p.year}-${String(p.month).padStart(2, '0')}-${String(p.day).padStart(2, '0')}` : '';
-  const timeValue = p && !task.all_day ? `${String(p.hour).padStart(2, '0')}:${String(p.minute).padStart(2, '0')}` : '';
+  const savedDate = p ? `${p.year}-${String(p.month).padStart(2, '0')}-${String(p.day).padStart(2, '0')}` : '';
+  const savedTime = p && !task.all_day ? `${String(p.hour).padStart(2, '0')}:${String(p.minute).padStart(2, '0')}` : '';
+  // Если для этой задачи есть несохранённый черновик — показываем его, а не сохранённые значения.
+  // Иначе любая перерисовка (вкладки, фоновая синхронизация) стирала бы введённое.
+  if (state.draft && state.draft.taskId !== task.id) state.draft = null;
+  const d = state.draft ?? {};
+  const v = {
+    title: d.title ?? task.title,
+    notes: d.notes ?? (task.notes || ''),
+    date: d.date ?? savedDate,
+    time: d.time ?? savedTime,
+    priority: d.priority ?? Number(task.priority),
+    recurrence: d.recurrence ?? (task.recurrence ?? ''),
+    project: d.project ?? (task.project ?? ''),
+    tags: d.tags ?? (task.tags || []).join(' '),
+    remind_offsets: d.remind_offsets ?? (task.remind_offsets || []),
+  };
   $('editor').innerHTML = `
-    <h3>Задача</h3>
-    <div class="field"><label>Название</label><input id="fTitle" value="${escapeHtml(task.title)}" /></div>
-    <div class="field"><label>Заметки</label><textarea id="fNotes">${escapeHtml(task.notes || '')}</textarea></div>
+    <h3>Задача${state.draft ? ' <span class="hint">· есть несохранённые изменения</span>' : ''}</h3>
+    <div class="field"><label>Название</label><input id="fTitle" value="${escapeHtml(v.title)}" /></div>
+    <div class="field"><label>Заметки</label><textarea id="fNotes">${escapeHtml(v.notes)}</textarea></div>
     <div class="row">
-      <div class="field"><label>Дата</label><input type="date" id="fDate" value="${dateValue}" /></div>
-      <div class="field"><label>Время</label><input type="time" id="fTime" value="${timeValue}" /></div>
+      <div class="field"><label>Дата</label><input type="date" id="fDate" value="${v.date}" /></div>
+      <div class="field"><label>Время</label><input type="time" id="fTime" value="${v.time}" /></div>
     </div>
     <div class="row">
       <div class="field"><label>Приоритет</label><select id="fPriority">
-        ${PRIORITY_LABELS.map((label, index) => `<option value="${index}" ${Number(task.priority) === index ? 'selected' : ''}>${label}</option>`).join('')}
+        ${PRIORITY_LABELS.map((label, index) => `<option value="${index}" ${Number(v.priority) === index ? 'selected' : ''}>${label}</option>`).join('')}
       </select></div>
       <div class="field"><label>Повтор</label><select id="fRecurrence">
-        ${RECURRENCE_OPTIONS.map(([value, label]) => `<option value="${value}" ${(task.recurrence ?? '') === value ? 'selected' : ''}>${label}</option>`).join('')}
+        ${RECURRENCE_OPTIONS.map(([value, label]) => `<option value="${value}" ${v.recurrence === value ? 'selected' : ''}>${label}</option>`).join('')}
       </select></div>
     </div>
     <div class="row">
-      <div class="field"><label>Проект</label><input id="fProject" value="${escapeHtml(task.project ?? '')}" placeholder="например, работа" /></div>
-      <div class="field"><label>Теги</label><input id="fTags" value="${escapeHtml((task.tags || []).join(' '))}" placeholder="через пробел" /></div>
+      <div class="field"><label>Проект</label><input id="fProject" value="${escapeHtml(v.project)}" placeholder="например, работа" /></div>
+      <div class="field"><label>Теги</label><input id="fTags" value="${escapeHtml(v.tags)}" placeholder="через пробел" /></div>
     </div>
     <div class="field">
       <label>Напоминания до срока</label>
       <div class="offsets" id="fOffsets">
-        ${OFFSET_PRESETS.map((minutes) => `<button data-offset="${minutes}" class="${(task.remind_offsets || []).includes(minutes) ? 'on' : ''}">${offsetLabel(minutes)}</button>`).join('')}
-        <button data-offset="none" class="${(task.remind_offsets || []).length === 0 ? 'on' : ''}">выключены</button>
+        ${OFFSET_PRESETS.map((minutes) => `<button data-offset="${minutes}" class="${v.remind_offsets.includes(minutes) ? 'on' : ''}">${offsetLabel(minutes)}</button>`).join('')}
+        <button data-offset="none" class="${v.remind_offsets.length === 0 ? 'on' : ''}">выключены</button>
       </div>
     </div>
     <div class="actions">
@@ -519,14 +535,20 @@ function renderEditor() {
       ${task.synced ? '<br />Синхронизировано с облаком' : '<br />Ждёт синхронизации'}
     </div>`;
 
+  // Любой ввод в карточке — в черновик, чтобы перерисовка его не потеряла.
+  ['fTitle', 'fNotes', 'fDate', 'fTime', 'fPriority', 'fRecurrence', 'fProject', 'fTags'].forEach((id) => {
+    $(id).addEventListener('input', () => captureDraft(task));
+    $(id).addEventListener('change', () => captureDraft(task));
+  });
   $('fOffsets').querySelectorAll('button').forEach((button) => {
     button.onclick = () => {
+      captureDraft(task);
       const value = button.dataset.offset;
-      const current = new Set(task.remind_offsets || []);
+      const current = new Set(state.draft.remind_offsets);
       if (value === 'none') current.clear();
       else if (current.has(Number(value))) current.delete(Number(value));
       else current.add(Number(value));
-      task.remind_offsets = Array.from(current).sort((a, b) => b - a);
+      state.draft.remind_offsets = Array.from(current).sort((a, b) => b - a);
       renderEditor();
     };
   });
@@ -535,9 +557,11 @@ function renderEditor() {
     const next = state.tasks.map((item) => item.id === task.id
       ? { ...item, status: item.status === 'archived' ? 'open' : 'archived', updated_at: new Date().toISOString(), dirty: true }
       : item);
+    state.draft = null;
     await saveTasks(next, task.status === 'archived' ? 'Возвращено из архива' : 'Убрано в архив');
   };
   $('fDelete').onclick = async () => {
+    state.draft = null;
     await bridge.remove(task.id);
     state.tasks = state.tasks.filter((item) => item.id !== task.id);
     state.selectedId = null;
@@ -580,11 +604,38 @@ async function applyEditor(task) {
     tags: $('fTags').value.split(/\s+/).map((tag) => tag.replace(/^\+/, '')).filter(Boolean).slice(0, 8),
     due_at: dueAt,
     all_day: allDay,
-    remind_offsets: previous.remind_offsets,
+    remind_offsets: state.draft?.taskId === previous.id && state.draft.remind_offsets ? state.draft.remind_offsets : previous.remind_offsets,
     updated_at: new Date().toISOString(),
     dirty: true,
   };
+  state.draft = null;
+  state.selectedId = null; // после «Сохранить» карточка закрывается
   await saveTasks(state.tasks.map((item) => (item.id === previous.id ? updated : item)), 'Сохранено');
+}
+
+/** Снимок полей карточки в черновик (вызывается при каждом вводе). */
+function captureDraft(task) {
+  if (!$('fTitle')) return;
+  const previous = state.draft?.taskId === task.id ? state.draft : null;
+  state.draft = {
+    taskId: task.id,
+    title: $('fTitle').value,
+    notes: $('fNotes').value,
+    date: $('fDate').value,
+    time: $('fTime').value,
+    priority: Number($('fPriority').value),
+    recurrence: $('fRecurrence').value,
+    project: $('fProject').value,
+    tags: $('fTags').value,
+    remind_offsets: previous?.remind_offsets ?? (task.remind_offsets || []),
+  };
+}
+
+/** Выбор задачи в списке: черновик другой задачи сбрасывается. */
+function selectTask(taskId) {
+  if (state.draft && state.draft.taskId !== taskId) state.draft = null;
+  state.selectedId = taskId;
+  render();
 }
 
 // --- Быстрое добавление ---
@@ -693,8 +744,18 @@ function renderSettings() {
   };
   $('sSaveCloud').onclick = () => saveSettings({ supabaseUrl: $('sUrl').value.trim(), supabaseKey: $('sKey').value.trim() }, 'Параметры облака сохранены');
   $('sSync')?.addEventListener('click', async () => { const result = await bridge.syncNow(); toast(result?.ok ? 'Синхронизировано' : `Не удалось: ${result?.reason ?? result?.error ?? 'ошибка'}`); render(); });
+  // Перед входом/регистрацией подхватываем URL и ключ из полей, даже если «Сохранить параметры облака» не нажимали.
+  const ensureCloudSaved = async () => {
+    const url = $('sUrl').value.trim();
+    const key = $('sKey').value.trim();
+    if (!url || !key) throw new Error('заполни Supabase URL и Publishable key ниже');
+    if (url !== (state.settings.supabaseUrl || '') || key !== (state.settings.supabaseKey || '')) {
+      state.settings = await bridge.saveSettings({ supabaseUrl: url, supabaseKey: key });
+    }
+  };
   $('sSignIn')?.addEventListener('click', async () => {
     try {
+      await ensureCloudSaved();
       state.cloud = await bridge.signIn($('sEmail').value, $('sPassword').value);
       toast('Вход выполнен');
       render();
@@ -702,6 +763,7 @@ function renderSettings() {
   });
   $('sSignUp')?.addEventListener('click', async () => {
     try {
+      await ensureCloudSaved();
       const result = await bridge.signUp($('sEmail').value, $('sPassword').value);
       toast(result.needsConfirmation ? 'Аккаунт создан: подтвердите e-mail письмом' : 'Аккаунт создан');
       state.cloud = result.state || state.cloud;
@@ -783,7 +845,7 @@ document.addEventListener('keydown', (event) => {
 bridge.onTasksChanged((tasks) => { state.tasks = tasks || []; render(); });
 bridge.onCloudStatus((cloud) => { state.cloud = { ...state.cloud, ...cloud }; render(); });
 bridge.onUpdateStatus((update) => { state.update = update; render(); });
-bridge.onFocusTask((taskId) => { state.selectedId = taskId; render(); });
+bridge.onFocusTask((taskId) => { selectTask(taskId); });
 
 bootstrap();
 </script>

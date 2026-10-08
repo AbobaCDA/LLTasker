@@ -1,6 +1,6 @@
 {
   "name": "lltasker",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "private": true,
   "type": "module",
   "description": "LLTasker — таск-трекер для Windows с облачной синхронизацией и напоминаниями в Telegram",

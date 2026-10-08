@@ -123,7 +123,7 @@ export async function getState() {
 }
 
 export async function signUp(email, password) {
-  if (!client) throw new Error('Облако не настроено');
+  if (!client) throw new Error('облако не настроено: укажи Supabase URL и Publishable key и нажми «Сохранить параметры облака»');
   lastError = '';
   const { data, error } = await client.auth.signUp({ email: email.trim(), password });
   if (error) {
@@ -135,7 +135,7 @@ export async function signUp(email, password) {
 }
 
 export async function signIn(email, password) {
-  if (!client) throw new Error('Облако не настроено');
+  if (!client) throw new Error('облако не настроено: укажи Supabase URL и Publishable key и нажми «Сохранить параметры облака»');
   lastError = '';
   const { error } = await client.auth.signInWithPassword({ email: email.trim(), password });
   if (error) {
@@ -154,7 +154,7 @@ export async function signOut() {
 }
 
 export async function linkTelegram(code) {
-  if (!client) throw new Error('Облако не настроено');
+  if (!client) throw new Error('облако не настроено: укажи Supabase URL и Publishable key и нажми «Сохранить параметры облака»');
   const { data, error } = await client.functions.invoke('link-telegram', { body: { code: String(code ?? '').trim().toUpperCase() } });
   if (error) throw new Error(error.message || 'Не удалось привязать Telegram');
   if (data && data.ok === false) {
@@ -174,7 +174,7 @@ export async function linkTelegram(code) {
  * @param {{ deletes?: string[], force?: boolean }} [options]
  */
 export async function syncTasks(localTasks, options = {}) {
-  if (!client) throw new Error('Облако не настроено');
+  if (!client) throw new Error('облако не настроено: укажи Supabase URL и Publishable key и нажми «Сохранить параметры облака»');
   const { data } = await client.auth.getSession();
   const session = data?.session ?? null;
   if (!session?.user) throw new Error('Требуется вход в аккаунт');
@@ -228,7 +228,7 @@ export async function syncTasks(localTasks, options = {}) {
 
 /** Настройки профиля в облаке (часовой пояс, дайджест). */
 export async function pushProfileSettings(settings) {
-  if (!client) throw new Error('Облако не настроено');
+  if (!client) throw new Error('облако не настроено: укажи Supabase URL и Publishable key и нажми «Сохранить параметры облака»');
   const { data } = await client.auth.getSession();
   const userId = data?.session?.user?.id;
   if (!userId) throw new Error('Требуется вход в аккаунт');
