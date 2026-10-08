@@ -23,7 +23,7 @@ const db: SupabaseClient = createClient(supabaseUrl, adminKey, {
 });
 
 const SESSION_TTL_MINUTES = 10;
-const PRIORITY_MARKS = ["⚪️", "🔵", "🟠", "🔴"];
+const PRIORITY_MARKS = ["🔽", "⚪️", "🟠", "🔴"];
 
 type TaskRow = {
   user_id: string;

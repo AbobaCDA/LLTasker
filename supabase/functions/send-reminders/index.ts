@@ -11,7 +11,7 @@ const db: SupabaseClient = createClient(supabaseUrl, adminKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
-const PRIORITY_MARKS = ["⚪️", "🔵", "🟠", "🔴"];
+const PRIORITY_MARKS = ["🔽", "⚪️", "🟠", "🔴"];
 const DIGEST_MAX_TASKS = 12;
 
 function requiredEnv(name: string): string {

@@ -133,7 +133,7 @@
   .card .foot { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); min-height: 14px; }
   .card .foot .proj { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .card .stripe { position: absolute; left: 10px; right: 10px; top: 0; height: 3px; border-radius: 0 0 3px 3px; }
-  .prio-0 .stripe { background: transparent; } .prio-1 .stripe { background: rgba(79, 140, 255, .5); } .prio-2 .stripe { background: #f59e0b; } .prio-3 .stripe { background: #ef4444; }
+  .prio-0 .stripe, .prio-1 .stripe { background: transparent; } .prio-0 .title { color: var(--muted); font-weight: 500; } .prio-2 .stripe { background: #f59e0b; } .prio-3 .stripe { background: #ef4444; }
   .placeholder { flex: none; width: 100%; aspect-ratio: 4 / 3; border-radius: var(--radius); border: 2px dashed var(--accent); opacity: .6; }
 
   /* --- Полка внизу: без срока и позже --- */
@@ -308,7 +308,7 @@ const state = {
   showDone: false,
 };
 
-const PRIORITY_LABELS = ['Обычная', 'Низкий', 'Средний', 'Высокий'];
+const PRIORITY_LABELS = ['Низкий', 'Обычная', 'Средний', 'Высокий']; // 1 — по умолчанию, полоска только у 2 и 3
 const OFFSET_PRESETS = [10080, 1440, 720, 180, 60, 30, 10, 5];
 const RECURRENCE_OPTIONS = [['', 'Без повтора'], ['daily', 'Каждый день'], ['weekdays', 'По будням'], ['weekly', 'Каждую неделю'], ['monthly', 'Каждый месяц']];
 const $ = (id) => document.getElementById(id);
