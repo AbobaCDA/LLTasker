@@ -18,11 +18,10 @@
     --warn: #f2b544;
     --danger: #f2545b;
     --radius: 14px;
-    --card-alpha: .6;
+    --panel-alpha: .1;            /* прозрачность колонок дней и карточек — одна на всех */
     --card-rgb: 34, 40, 54;      /* цвет карточки, прозрачность — отдельно */
     --card-line: rgba(255, 255, 255, .08);
     --solid: #1e2431;             /* непрозрачный фон всплывающих окон */
-    --col-bg: rgba(255, 255, 255, .03);
     --wallpaper: none;
     --wallpaper-veil: rgba(10, 12, 18, .55);
     --blur: 10px;
@@ -42,7 +41,6 @@
     --card-rgb: 255, 255, 255;
     --card-line: rgba(80, 92, 110, .35);  /* серый контур облачка */
     --solid: #ffffff;
-    --col-bg: rgba(255, 255, 255, .12);
     --wallpaper-veil: rgba(240, 243, 247, .25);
     --blur: 12px;
   }
@@ -72,22 +70,18 @@
   .weeknav button:first-child, .weeknav button:last-child { font-size: 18px; color: var(--muted); padding: 0 9px; }
   .weeknav button:hover { color: var(--accent); }
   .weeknav button.off { color: var(--muted); }
-  .quick { display: flex; align-items: center; gap: 10px; border-radius: 10px; padding: 9px 12px; border: 1px solid var(--line); background: #fff; }
-  :root:not([data-theme="light"]) .quick { background: var(--panel-2); }
-  .quick:focus-within { border-color: var(--accent); }
-  .arch-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+    .arch-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
   .arch-row:last-child { border-bottom: 0; }
   .arch-row .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .arch-row .m { color: var(--muted); font-size: 12px; white-space: nowrap; }
   .arch-row button { border-radius: 8px; padding: 5px 10px; font-size: 12px; }
-  .quick input { flex: 1; background: transparent; border: 0; outline: none; min-width: 80px; font-size: 15px; }
-  .preview { color: var(--muted); font-size: 12px; min-height: 18px; margin: 8px 2px 0; }
+  .preview { color: var(--muted); font-size: 12px; min-height: 18px; margin: 4px 2px 0; }
   .primary { background: var(--accent); border: 0; color: #fff; border-radius: 10px; padding: 8px 14px; font-weight: 600; }
   .primary:hover { filter: brightness(1.08); }
   .primary.glass { background: rgba(47, 111, 237, .55); border: 1px solid rgba(47, 111, 237, .5); color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, .25); }
   .primary.glass:hover { background: rgba(47, 111, 237, .75); }
   .search { border-radius: 10px; padding: 7px 10px; width: 150px; outline: none; transition: width .15s; }
-  .search::placeholder, .quick input::placeholder { color: var(--muted); }
+  .search::placeholder { color: var(--muted); }
   .search:focus { width: 220px; border-color: var(--accent); }
   .icon-btn { color: var(--muted); border-radius: 10px; width: 34px; height: 34px; display: grid; place-items: center; font-size: 16px; line-height: 1; flex: none; }
   .modal-card .icon-btn { background: transparent; border: 1px solid var(--line); }
@@ -99,7 +93,7 @@
 
   /* --- Неделя: 7 колонок --- */
   .board { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; padding: 4px 14px 8px; }
-  .col { display: flex; flex-direction: column; min-height: 0; border-radius: var(--radius); background: var(--col-bg); }
+  .col { display: flex; flex-direction: column; min-height: 0; border-radius: var(--radius); background: rgba(var(--card-rgb), var(--panel-alpha)); }
   .col.today { box-shadow: inset 0 3px 0 var(--accent); }
   .col.drop { outline: 2px dashed var(--accent); outline-offset: -2px; }
   .col-head { padding: 10px 10px 6px; display: grid; grid-template-columns: 1fr auto; column-gap: 6px; align-items: baseline; }
@@ -115,7 +109,7 @@
   .card {
     position: relative; aspect-ratio: 4 / 3; width: 100%; flex: none;
     border-radius: var(--radius); border: 1px solid var(--card-line);
-    background: rgba(var(--card-rgb), var(--card-alpha)); backdrop-filter: blur(var(--blur));
+    background: rgba(var(--card-rgb), var(--panel-alpha)); backdrop-filter: blur(var(--blur));
     padding: 9px 10px 8px; display: flex; flex-direction: column; gap: 4px; cursor: grab;
     box-shadow: 0 2px 10px rgba(0, 0, 0, .06); transition: transform .1s, box-shadow .1s;
   }
@@ -151,7 +145,9 @@
   .overlay.open { display: block; }
   .modal { position: fixed; inset: 0; display: none; place-items: center; z-index: 30; background: rgba(6, 8, 12, .35); }
   .modal.open { display: grid; }
-  .modal-card { width: min(560px, calc(100vw - 40px)); max-height: calc(100vh - 40px); overflow-y: auto; background: var(--solid); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px 16px; box-shadow: 0 20px 60px rgba(0, 0, 0, .35); }
+  .modal-card { width: min(560px, calc(100vw - 40px)); max-height: calc(100vh - 40px); overflow-y: auto; background: rgba(var(--card-rgb), .72); backdrop-filter: blur(22px) saturate(1.1); border: 1px solid var(--card-line); border-radius: 16px; padding: 18px 20px 16px; box-shadow: 0 20px 60px rgba(0, 0, 0, .25); }
+  :root[data-theme="light"] .modal-card .field input, :root[data-theme="light"] .modal-card .field select, :root[data-theme="light"] .modal-card .field textarea { background: rgba(255, 255, 255, .6); }
+  :root[data-theme="light"] .modal-card .log-view { background: rgba(255, 255, 255, .7); }
   .editor-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
   .editor-head h3 { margin: 0; font-size: 16px; }
   .field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
@@ -222,7 +218,6 @@
 <div class="overlay" id="overlay"></div>
 <div class="drawer" id="drawer" style="display:none"></div>
 <div class="modal" id="modal"><div class="modal-card" id="editor"></div></div>
-<div class="modal" id="addModal"><div class="modal-card" id="addBody"></div></div>
 <div class="modal" id="archiveModal"><div class="modal-card" id="archiveBody"></div></div>
 <div class="modal" id="logModal"><div class="modal-card" style="width:min(860px, calc(100vw - 40px))" id="logBody"></div></div>
 <div class="toast" id="toast"></div>
@@ -254,7 +249,7 @@ function demoTasks() {
 const demoBridge = {
   load: async () => ({
     tasks: demoTasks(),
-    settings: { timezone: 'Europe/Moscow', digestEnabled: true, digestAt: '09:00', notifications: 'both', supabaseUrl: '', supabaseKey: '', theme: 'light', wallpaper: 'forest', cardOpacity: 60 },
+    settings: { timezone: 'Europe/Moscow', digestEnabled: true, digestAt: '09:00', notifications: 'both', supabaseUrl: '', supabaseKey: '', theme: 'light', wallpaper: 'forest', panelOpacity: 10 },
     cloud: { configured: false, signedIn: false, error: '' },
     update: { status: 'dev' },
     startup: false,
@@ -304,6 +299,7 @@ const state = {
   search: '',
   weekOffset: 0, // 0 — неделя начиная с сегодня, 1 — следующая и т.д.
   selectedId: null,
+  pending: null, // новая задача, открытая в карточке, но ещё не созданная
   draft: null, // несохранённые правки открытой карточки: { taskId, title, notes, date, time, priority, recurrence, project, tags, remind_offsets }
   showDone: false,
 };
@@ -392,8 +388,8 @@ async function applyAppearance() {
     url = images[state.settings.wallpaper] || null;
   }
   document.body.classList.toggle('no-wallpaper', !url);
-  const opacity = Math.min(95, Math.max(20, Number(state.settings.cardOpacity) || 60));
-  document.documentElement.style.setProperty('--card-alpha', String(opacity / 100));
+  const opacity = Math.min(60, Math.max(5, Number(state.settings.panelOpacity) || 10));
+  document.documentElement.style.setProperty('--panel-alpha', String(opacity / 100));
   document.documentElement.style.setProperty('--wallpaper', url ? `url("${url}")` : 'none');
 }
 
@@ -695,7 +691,10 @@ async function toggleDone(taskId) {
 
 // --- Карточка задачи (всплывающее окно) ---
 function renderEditor() {
-  const task = state.tasks.find((item) => item.id === state.selectedId);
+  // Новая задача живёт в state.pending, пока её не создали кнопкой; в списке её ещё нет.
+  const task = state.tasks.find((item) => item.id === state.selectedId)
+    ?? (state.pending && state.pending.id === state.selectedId ? state.pending : null);
+  const isNew = Boolean(task && state.pending && task.id === state.pending.id);
   if (!task) {
     $('modal').classList.remove('open');
     $('editor').innerHTML = '';
@@ -723,10 +722,11 @@ function renderEditor() {
   };
   $('editor').innerHTML = `
     <div class="editor-head">
-      <h3>${task.due_at ? escapeHtml(dueDayLabel(task)) : 'Без срока'}${state.draft ? ' <span class="hint">· не сохранено</span>' : ''}</h3>
+      <h3>${isNew ? 'Новая задача' : task.due_at ? escapeHtml(dueDayLabel(task)) : 'Без срока'}${state.draft && !isNew ? ' <span class="hint">· не сохранено</span>' : ''}</h3>
       <button class="icon-btn" id="fClose" title="Закрыть без сохранения (Esc)">×</button>
     </div>
-    <div class="field"><label>Название</label><input id="fTitle" value="${escapeHtml(v.title)}" /></div>
+    <div class="field"><label>Название</label><input id="fTitle" value="${escapeHtml(v.title)}" placeholder="${isNew ? 'купить фильтр завтра 19:00 !2 #дом' : ''}" autocomplete="off" /></div>
+    ${isNew ? '<div class="preview" id="quickPreview"></div><p class="hint" style="margin:2px 0 10px">Можно просто словами: <b>завтра 19:00</b>, <b>в пятницу в 10</b>, <b>через 3 дня</b>, <b>!3</b> — приоритет, <b>#дом</b> — проект, <b>+срочно</b> — тег, <b>за день за час</b> — напоминания, <b>каждый день</b>. Что разобралось из строки — подставится в пустые поля ниже.</p>' : ''}
     <div class="field"><label>Заметки</label><textarea id="fNotes">${escapeHtml(v.notes)}</textarea></div>
     <div class="row">
       <div class="field"><label>Дата</label><input type="date" id="fDate" value="${v.date}" /></div>
@@ -752,11 +752,13 @@ function renderEditor() {
       </div>
     </div>
     <div class="actions">
-      <button class="primary" id="fSave">Сохранить</button>
+      ${isNew
+        ? '<button class="primary" id="fSave">Создать</button><button class="ghost" id="fCancel">Отмена</button>'
+        : `<button class="primary" id="fSave">Сохранить</button>
       <button class="ghost" id="fArchive">${task.status === 'archived' ? 'Вернуть' : 'В архив'}</button>
-      <button class="danger" id="fDelete">Удалить</button>
+      <button class="danger" id="fDelete">Удалить</button>`}
     </div>
-    <p class="hint" style="margin:10px 0 0">${task.synced ? 'Синхронизировано с облаком' : 'Ждёт синхронизации'}</p>`;
+    ${isNew ? '' : `<p class="hint" style="margin:10px 0 0">${task.synced ? 'Синхронизировано с облаком' : 'Ждёт синхронизации'}</p>`}`;
 
   // Любой ввод в карточке — в черновик, чтобы перерисовка его не потеряла.
   ['fTitle', 'fNotes', 'fDate', 'fTime', 'fPriority', 'fRecurrence', 'fProject', 'fTags'].forEach((id) => {
@@ -776,7 +778,15 @@ function renderEditor() {
     };
   });
   $('fSave').onclick = () => applyEditor(task);
-  $('fClose').onclick = () => { state.draft = null; state.selectedId = null; render(); };
+  $('fClose').onclick = () => { state.draft = null; state.pending = null; state.selectedId = null; render(); };
+  if (isNew) {
+    $('fCancel').onclick = $('fClose').onclick;
+    $('fTitle').addEventListener('input', () => { clearTimeout(previewTimer); previewTimer = setTimeout(updatePreview, 180); });
+    $('fTitle').addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); applyEditor(task); } });
+    if (!state.draft) setTimeout(() => $('fTitle')?.focus(), 30);
+    else if (state.draft.title) updatePreview();
+    return;
+  }
   $('fArchive').onclick = async () => {
     const next = state.tasks.map((item) => item.id === task.id
       ? { ...item, status: item.status === 'archived' ? 'open' : 'archived', updated_at: new Date().toISOString(), dirty: true }
@@ -804,9 +814,11 @@ function offsetLabel(minutes) {
 
 async function applyEditor(task) {
   const timeZone = state.settings.timezone || 'Europe/Moscow';
+  const isNew = Boolean(state.pending && task.id === state.pending.id);
   const date = $('fDate').value;
   const time = $('fTime').value;
   const previous = task;
+  if (isNew) return createFromEditor(task, date, time);
   let dueAt = null;
   let allDay = false;
   if (date) {
@@ -838,6 +850,50 @@ async function applyEditor(task) {
   await saveTasks(state.tasks.map((item) => (item.id === previous.id ? updated : item)), 'Сохранено');
 }
 
+/** Создание из полной карточки: умная строка в названии дополняет пустые поля. */
+async function createFromEditor(task, date, time) {
+  const timeZone = state.settings.timezone || 'Europe/Moscow';
+  const raw = $('fTitle').value.trim();
+  if (!raw) { toast('Введите название'); $('fTitle').focus(); return; }
+  const parsed = await bridge.preview(raw);
+  bridge.log('новая задача', raw);
+  const title = (parsed.title || raw).trim() || raw;
+  let dueAt = null;
+  let allDay = false;
+  if (date) {
+    const [year, month, day] = date.split('-').map(Number);
+    if (time) {
+      const [hour, minute] = time.split(':').map(Number);
+      dueAt = zonedToUtc(year, month, day, hour, minute, timeZone).toISOString();
+    } else {
+      dueAt = zonedToUtc(year, month, day, 12, 0, timeZone).toISOString();
+      allDay = true;
+    }
+  } else if (parsed.dueAt) {
+    dueAt = parsed.dueAt;
+    allDay = Boolean(parsed.allDay);
+  }
+  const formPriority = Number($('fPriority').value);
+  const formProject = $('fProject').value.trim();
+  const formTags = $('fTags').value.split(/\s+/).map((tag) => tag.replace(/^\+/, '')).filter(Boolean);
+  const formRecurrence = $('fRecurrence').value || null;
+  const draftOffsets = state.draft?.taskId === task.id && state.draft.remind_offsets ? state.draft.remind_offsets : null;
+  const created = newTask(title, {
+    notes: $('fNotes').value,
+    priority: formPriority !== 1 ? formPriority : Number(parsed.priority ?? 1),
+    project: formProject || parsed.project || null,
+    tags: (formTags.length ? formTags : (parsed.tags || [])).slice(0, 8),
+    recurrence: formRecurrence || parsed.recurrence || null,
+    due_at: dueAt,
+    all_day: allDay,
+    remind_offsets: draftOffsets ?? (parsed.offsets === null || parsed.offsets === undefined ? [1440, 60, 10] : parsed.offsets),
+  });
+  state.draft = null;
+  state.pending = null;
+  state.selectedId = null;
+  await saveTasks([...state.tasks, created], `Добавлено: ${created.title}`);
+}
+
 /** Снимок полей карточки в черновик (вызывается при каждом вводе). */
 function captureDraft(task) {
   if (!$('fTitle')) return;
@@ -863,64 +919,33 @@ function selectTask(taskId) {
   render();
 }
 
-// --- Добавление задачи: окно по центру с умной строкой ---
+// --- Добавление задачи: сразу полная карточка ---
 let previewTimer = null;
 async function updatePreview() {
-  const input = $('quickInput');
-  if (!input) return;
+  const input = $('fTitle');
+  const box = $('quickPreview');
+  if (!input || !box) return;
   const text = input.value.trim();
-  if (!text) { $('quickPreview').textContent = ''; return; }
+  if (!text) { box.textContent = ''; return; }
   const parsed = await bridge.preview(text);
   const bits = [];
-  if (parsed.title) bits.push(parsed.title);
+  if (parsed.title && parsed.title !== text) bits.push(`«${parsed.title}»`);
   if (parsed.dueLabel) bits.push(parsed.dueLabel);
   if (Number(parsed.priority) > 1) bits.push(`!${parsed.priority}`);
   if (parsed.project) bits.push(`#${parsed.project}`);
   if (parsed.offsets && parsed.offsets.length) bits.push(`🔔 ${parsed.offsets.map(offsetLabel).join(', ')}`);
   else if (parsed.offsets && parsed.offsets.length === 0) bits.push('🔕');
   if (parsed.recurrence) bits.push('🔁');
-  $('quickPreview').textContent = bits.join(' · ');
+  if (box.isConnected) box.textContent = bits.join(' · ');
 }
 
-function openAdd() {
-  $('addBody').innerHTML = `
-    <div class="editor-head">
-      <h3>Новая задача</h3>
-      <button class="icon-btn" id="addClose" title="Закрыть (Esc)">×</button>
-    </div>
-    <div class="quick"><input id="quickInput" placeholder="купить фильтр завтра 19:00 !2 #дом" autocomplete="off" /></div>
-    <div class="preview" id="quickPreview"></div>
-    <p class="hint" style="margin:10px 0 0">Просто напиши задачу словами. Понимает: <b>завтра 19:00</b>, <b>в пятницу в 10</b>, <b>через 3 дня</b>, <b>!3</b> — приоритет, <b>#дом</b> — проект, <b>+срочно</b> — тег, <b>за день за час</b> — напоминания, <b>каждый день</b> / <b>по будням</b>. Без даты — попадёт в «Без срока».</p>
-    <div class="actions"><button class="primary" id="addSubmit">Добавить</button><button class="ghost" id="addCancel">Отмена</button></div>`;
-  $('addModal').classList.add('open');
-  const input = $('quickInput');
-  input.addEventListener('input', () => { clearTimeout(previewTimer); previewTimer = setTimeout(updatePreview, 180); });
-  input.addEventListener('keydown', (event) => { if (event.key === 'Enter') quickAdd(); });
-  $('addSubmit').onclick = quickAdd;
-  $('addClose').onclick = closeAdd;
-  $('addCancel').onclick = closeAdd;
-  setTimeout(() => input.focus(), 30);
-}
-function closeAdd() { $('addModal').classList.remove('open'); }
-
-async function quickAdd() {
-  const text = $('quickInput')?.value.trim();
-  if (!text) return;
-  const parsed = await bridge.preview(text);
-  bridge.log('быстрый ввод', text);
-  if (!parsed.title) { toast('Не понял название задачи'); return; }
-  const offsets = parsed.offsets === null ? [1440, 60, 10] : parsed.offsets;
-  const task = newTask(parsed.title, {
-    due_at: parsed.dueAt,
-    all_day: parsed.allDay,
-    priority: parsed.priority,
-    project: parsed.project,
-    tags: parsed.tags,
-    recurrence: parsed.recurrence,
-    remind_offsets: offsets,
-  });
-  closeAdd();
-  await saveTasks([...state.tasks, task], `Добавлено: ${task.title}`);
+function openAdd(dateIso = '') {
+  state.draft = null;
+  state.pending = newTask('', { remind_offsets: [1440, 60, 10] });
+  state.pending.due_at = null;
+  state.selectedId = state.pending.id;
+  render();
+  if (dateIso && $('fDate')) { $('fDate').value = dateIso; captureDraft(state.pending); }
 }
 
 // --- Архив ---
@@ -1018,8 +1043,8 @@ function renderSettings() {
         </div>
       </div>
       ${settings.wallpaperFile ? '<p class="hint">Чтобы заменить свою картинку, нажми «Своя картинка» ещё раз.</p>' : '<p class="hint">Своя картинка копируется в папку данных приложения (jpg, png, webp).</p>'}
-      <div class="field"><label>Плотность карточек: <span id="sOpacityValue">${Number(settings.cardOpacity) || 60}%</span></label>
-        <input type="range" id="sOpacity" min="20" max="95" step="5" value="${Number(settings.cardOpacity) || 60}" /></div>
+      <div class="field"><label>Прозрачность дней и карточек: <span id="sOpacityValue">${Number(settings.panelOpacity) || 10}%</span></label>
+        <input type="range" id="sOpacity" min="5" max="60" step="5" value="${Number(settings.panelOpacity) || 10}" /></div>
     </div>
 
     <div class="section">
@@ -1044,8 +1069,8 @@ function renderSettings() {
   };
   $('sTimezone').onchange = () => saveSettings({ timezone: $('sTimezone').value }, 'Часовой пояс сохранён');
   $('sTheme').onchange = async () => { await saveSettings({ theme: $('sTheme').value }); await applyAppearance(); };
-  $('sOpacity').oninput = () => { $('sOpacityValue').textContent = `${$('sOpacity').value}%`; document.documentElement.style.setProperty('--card-alpha', String(Number($('sOpacity').value) / 100)); };
-  $('sOpacity').onchange = async () => { await saveSettings({ cardOpacity: Number($('sOpacity').value) }); await applyAppearance(); };
+  $('sOpacity').oninput = () => { $('sOpacityValue').textContent = `${$('sOpacity').value}%`; document.documentElement.style.setProperty('--panel-alpha', String(Number($('sOpacity').value) / 100)); };
+  $('sOpacity').onchange = async () => { await saveSettings({ panelOpacity: Number($('sOpacity').value) }); await applyAppearance(); };
   $('drawer').querySelectorAll('[data-wall]').forEach((button) => {
     button.onclick = async () => {
       const choice = button.dataset.wall;
@@ -1185,12 +1210,11 @@ function render() {
   $('showDone').classList.toggle('on', state.showDone);
 }
 
-$('quickAdd').onclick = openAdd;
+$('quickAdd').onclick = () => openAdd();
 $('archiveButton').onclick = openArchive;
 $('weekPrev').onclick = () => { state.weekOffset -= 1; renderBoard(); };
 $('weekNext').onclick = () => { state.weekOffset += 1; renderBoard(); };
 $('weekLabel').onclick = () => { state.weekOffset = 0; renderBoard(); };
-$('addModal').addEventListener('mousedown', (event) => { if (event.target === $('addModal')) closeAdd(); });
 $('archiveModal').addEventListener('mousedown', (event) => { if (event.target === $('archiveModal')) closeArchive(); });
 $('search').addEventListener('input', () => { state.search = $('search').value; render(); });
 $('showDone').onclick = () => { state.showDone = !state.showDone; render(); };
@@ -1202,15 +1226,14 @@ $('status').onclick = async () => {
 $('overlay').onclick = closeDrawer;
 $('modal').addEventListener('mousedown', (event) => {
   // Клик по затемнению вокруг окна — закрыть без сохранения.
-  if (event.target === $('modal')) { state.draft = null; state.selectedId = null; render(); }
+  if (event.target === $('modal')) { state.draft = null; state.pending = null; state.selectedId = null; render(); }
 });
 $('logModal').addEventListener('mousedown', (event) => { if (event.target === $('logModal')) closeLog(); });
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     if ($('logModal').classList.contains('open')) { closeLog(); return; }
-    if ($('addModal').classList.contains('open')) { closeAdd(); return; }
     if ($('archiveModal').classList.contains('open')) { closeArchive(); return; }
-    if ($('modal').classList.contains('open')) { state.draft = null; state.selectedId = null; render(); return; }
+    if ($('modal').classList.contains('open')) { state.draft = null; state.pending = null; state.selectedId = null; render(); return; }
     closeDrawer();
   }
   if (event.key === 'n' && event.ctrlKey) { event.preventDefault(); openAdd(); }
