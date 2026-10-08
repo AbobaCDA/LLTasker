@@ -66,9 +66,22 @@
   .brand .logo { width: 24px; height: 24px; border-radius: 7px; background: linear-gradient(135deg, #4f8cff, #8b5cf6); display: grid; place-items: center; font-size: 13px; color: #fff; }
   .brand .badge { font-weight: 400; }
   .glass { background: rgba(var(--card-rgb), .35); border: 1px solid var(--card-line); backdrop-filter: blur(var(--blur)); }
-  .quick { flex: 1; display: flex; align-items: center; gap: 10px; border-radius: var(--radius); padding: 7px 12px; min-width: 200px; }
-  .quick input { flex: 1; background: transparent; border: 0; outline: none; min-width: 80px; }
-  .quick .preview { color: var(--muted); font-size: 12px; white-space: nowrap; max-width: 40%; overflow: hidden; text-overflow: ellipsis; }
+  .spacer { flex: 1; }
+  .weeknav { display: flex; align-items: center; border-radius: 10px; height: 34px; overflow: hidden; }
+  .weeknav button { background: transparent; border: 0; color: var(--text); height: 100%; padding: 0 10px; font-size: 13px; white-space: nowrap; }
+  .weeknav button:first-child, .weeknav button:last-child { font-size: 18px; color: var(--muted); padding: 0 9px; }
+  .weeknav button:hover { color: var(--accent); }
+  .weeknav button.off { color: var(--muted); }
+  .quick { display: flex; align-items: center; gap: 10px; border-radius: 10px; padding: 9px 12px; border: 1px solid var(--line); background: #fff; }
+  :root:not([data-theme="light"]) .quick { background: var(--panel-2); }
+  .quick:focus-within { border-color: var(--accent); }
+  .arch-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .arch-row:last-child { border-bottom: 0; }
+  .arch-row .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .arch-row .m { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .arch-row button { border-radius: 8px; padding: 5px 10px; font-size: 12px; }
+  .quick input { flex: 1; background: transparent; border: 0; outline: none; min-width: 80px; font-size: 15px; }
+  .preview { color: var(--muted); font-size: 12px; min-height: 18px; margin: 8px 2px 0; }
   .primary { background: var(--accent); border: 0; color: #fff; border-radius: 10px; padding: 8px 14px; font-weight: 600; }
   .primary:hover { filter: brightness(1.08); }
   .primary.glass { background: rgba(47, 111, 237, .55); border: 1px solid rgba(47, 111, 237, .5); color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, .25); }
@@ -124,7 +137,7 @@
   .placeholder { flex: none; width: 100%; aspect-ratio: 4 / 3; border-radius: var(--radius); border: 2px dashed var(--accent); opacity: .6; }
 
   /* --- Полка внизу: без срока и позже --- */
-  .shelf { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 14px 12px; height: 150px; }
+  .shelf { display: grid; grid-template-columns: 1fr; gap: 8px; padding: 0 14px 12px; height: 150px; }
   .shelf .col { flex-direction: column; }
   .shelf .col-body { flex-direction: row; overflow-x: auto; overflow-y: hidden; align-items: stretch; }
   .shelf .card { width: 108px; aspect-ratio: auto; height: 100%; }
@@ -188,13 +201,16 @@
 <div class="app">
   <header class="topbar">
     <div class="brand"><span class="logo">✦</span> LLTasker <span class="badge" id="version"></span></div>
-    <div class="quick glass">
-      <input id="quickInput" placeholder="купить фильтр завтра 19:00 !2 #дом — просто напиши задачу" />
-      <span class="preview" id="quickPreview"></span>
+    <div class="weeknav glass">
+      <button id="weekPrev" title="Предыдущая неделя">‹</button>
+      <button id="weekLabel" title="Вернуться к текущей неделе"></button>
+      <button id="weekNext" title="Следующая неделя">›</button>
     </div>
-    <button class="primary glass" id="quickAdd">Добавить</button>
+    <div class="spacer"></div>
+    <button class="primary glass" id="quickAdd" title="Новая задача (Ctrl+N)">Добавить</button>
     <input type="search" class="search glass" id="search" placeholder="Поиск" />
     <button class="icon-btn glass" id="showDone" title="Показывать выполненные">✓</button>
+    <button class="icon-btn glass" id="archiveButton" title="Архив">▤</button>
     <div class="status" id="status" title="Нажми, чтобы синхронизировать"><span class="dot" id="cloudDot"></span><span id="cloudText">Локальный режим</span></div>
     <button class="icon-btn glass" id="settingsButton" title="Настройки и аккаунт">⚙</button>
   </header>
@@ -206,6 +222,8 @@
 <div class="overlay" id="overlay"></div>
 <div class="drawer" id="drawer" style="display:none"></div>
 <div class="modal" id="modal"><div class="modal-card" id="editor"></div></div>
+<div class="modal" id="addModal"><div class="modal-card" id="addBody"></div></div>
+<div class="modal" id="archiveModal"><div class="modal-card" id="archiveBody"></div></div>
 <div class="modal" id="logModal"><div class="modal-card" style="width:min(860px, calc(100vw - 40px))" id="logBody"></div></div>
 <div class="toast" id="toast"></div>
 
@@ -284,6 +302,7 @@ const state = {
   update: {},
   info: {},
   search: '',
+  weekOffset: 0, // 0 — неделя начиная с сегодня, 1 — следующая и т.д.
   selectedId: null,
   draft: null, // несохранённые правки открытой карточки: { taskId, title, notes, date, time, priority, recurrence, project, tags, remind_offsets }
   showDone: false,
@@ -441,16 +460,31 @@ function capitalize(text) { return text ? text[0].toUpperCase() + text.slice(1) 
 /** Семь дней начиная с сегодня: ключ-дата, подпись и мелкая дата. */
 function weekDays() {
   const timeZone = state.settings.timezone || 'Europe/Moscow';
+  const today = todayLocal(timeZone);
+  const tomorrow = addDaysLocal(timeZone, 1);
+  const narrow = window.innerWidth < 1040;
   return Array.from({ length: 7 }, (_, index) => {
-    const date = addDaysLocal(timeZone, index);
+    const date = addDaysLocal(timeZone, state.weekOffset * 7 + index);
     const noon = dateAtNoon(date);
     const weekday = noon.getUTCDay();
-    const narrow = window.innerWidth < 1040;
     const fullName = capitalize(WEEKDAY.format(noon));
-    const name = index === 0 ? 'Сегодня' : index === 1 ? 'Завтра' : narrow ? capitalize(WEEKDAY_SHORT.format(noon)) : fullName;
-    const sub = index <= 1 ? `${WEEKDAY_SHORT.format(noon)}, ${DAY_MONTH.format(noon).replace('.', '')}` : DAY_MONTH.format(noon).replace('.', '');
-    return { date, name, sub, weekend: weekday === 0 || weekday === 6 };
+    const special = date === today ? 'Сегодня' : date === tomorrow ? 'Завтра' : null;
+    const name = special ?? (narrow ? capitalize(WEEKDAY_SHORT.format(noon)) : fullName);
+    const sub = special ? `${WEEKDAY_SHORT.format(noon)}, ${DAY_MONTH.format(noon).replace('.', '')}` : DAY_MONTH.format(noon).replace('.', '');
+    return { date, name, sub, weekend: weekday === 0 || weekday === 6, isToday: date === today };
   });
+}
+
+/** Подпись диапазона недели для навигации. */
+function weekRangeLabel(days) {
+  const first = dateAtNoon(days[0].date);
+  const last = dateAtNoon(days[6].date);
+  const a = DAY_MONTH.format(first).replace('.', '');
+  const b = DAY_MONTH.format(last).replace('.', '');
+  if (state.weekOffset === 0) return `${a} – ${b}`;
+  if (state.weekOffset === 1) return `след. неделя · ${a} – ${b}`;
+  if (state.weekOffset === -1) return `пред. неделя · ${a} – ${b}`;
+  return `${state.weekOffset > 0 ? '+' : ''}${state.weekOffset} нед · ${a} – ${b}`;
 }
 
 function matchesSearch(task) {
@@ -470,26 +504,25 @@ function byBoardOrder(left, right) {
   return Number(right.priority) - Number(left.priority);
 }
 
-/** Раскладка: { days: Map(date → tasks[]), none: tasks[], later: tasks[] }. Просроченные попадают в «Сегодня». */
+/** Раскладка: { days: Map(date → tasks[]), none: tasks[] }. Просроченные попадают в «Сегодня» (на текущей неделе). */
 function boardData() {
   const timeZone = state.settings.timezone || 'Europe/Moscow';
   const days = weekDays();
-  const buckets = { days: new Map(days.map((day) => [day.date, []])), none: [], later: [] };
-  const today = days[0].date;
+  const buckets = { days: new Map(days.map((day) => [day.date, []])), none: [] };
+  const first = days[0].date;
   const last = days[6].date;
+  const today = todayLocal(timeZone);
   for (const task of state.tasks) {
     if (task.status === 'archived') continue;
     if (task.status === 'done' && !state.showDone) continue;
     if (!matchesSearch(task)) continue;
     if (!task.due_at) { buckets.none.push(task); continue; }
     const date = localDate(task.due_at, timeZone);
-    if (date <= today) buckets.days.get(today).push(task);
-    else if (date <= last) buckets.days.get(date).push(task);
-    else buckets.later.push(task);
+    if (buckets.days.has(date)) buckets.days.get(date).push(task);
+    else if (date < today && buckets.days.has(today)) buckets.days.get(today).push(task); // просроченные видны в «Сегодня»
   }
   for (const list of buckets.days.values()) list.sort(byBoardOrder);
   buckets.none.sort(byBoardOrder);
-  buckets.later.sort(byBoardOrder);
   return { days, buckets };
 }
 
@@ -520,20 +553,20 @@ function renderBoard() {
   $('board').innerHTML = days.map((day, index) => {
     const tasks = buckets.days.get(day.date);
     return `
-      <section class="col ${index === 0 ? 'today' : ''} ${day.weekend ? 'weekend' : ''}" data-day="${day.date}">
+      <section class="col ${day.isToday ? 'today' : ''} ${day.weekend ? 'weekend' : ''}" data-day="${day.date}">
         <div class="col-head"><span class="name">${day.name}</span><span class="n">${tasks.length || ''}</span><span class="date">${day.sub}</span></div>
         <div class="col-body" data-zone="day" data-day="${day.date}">${tasks.map((task) => cardHtml(task)).join('')}</div>
       </section>`;
   }).join('');
 
-  const shelfSection = (zone, title, tasks, hint) => `
-    <section class="col" data-zone-wrap="${zone}">
-      <div class="col-head"><span class="name">${title}</span><span class="n">${tasks.length || ''}</span></div>
-      <div class="col-body" data-zone="${zone}">${tasks.length ? tasks.map((task) => cardHtml(task, { showDay: zone === 'later' })).join('') : `<span class="empty-hint">${hint}</span>`}</div>
+  const pool = buckets.none;
+  $('shelf').innerHTML = `
+    <section class="col" data-zone-wrap="none">
+      <div class="col-head"><span class="name">Без срока</span><span class="n">${pool.length || ''}</span></div>
+      <div class="col-body" data-zone="none">${pool.length ? pool.map((task) => cardHtml(task)).join('') : '<span class="empty-hint">Пул дел без даты. Перетащи карточку сюда, чтобы снять срок, или на день — чтобы назначить.</span>'}</div>
     </section>`;
-  $('shelf').innerHTML =
-    shelfSection('none', 'Без срока', buckets.none, 'Перетащи сюда, чтобы снять срок') +
-    shelfSection('later', 'Позже', buckets.later, 'Задачи дальше этой недели');
+  $('weekLabel').textContent = weekRangeLabel(days);
+  $('weekLabel').classList.toggle('off', state.weekOffset === 0);
 
   document.querySelectorAll('[data-toggle]').forEach((button) => {
     button.onclick = (event) => { event.stopPropagation(); toggleDone(button.dataset.toggle); };
@@ -615,8 +648,8 @@ async function moveTask(taskId, target, order) {
   const timeZone = state.settings.timezone || 'Europe/Moscow';
   const now = new Date().toISOString();
   let patch = {};
-  if (target.kind === 'day' || target.kind === 'later') {
-    const dateString = target.kind === 'day' ? target.date : addDaysLocal(timeZone, 7);
+  if (target.kind === 'day') {
+    const dateString = target.date;
     const [year, month, day] = dateString.split('-').map(Number);
     if (task.due_at && !task.all_day) {
       const p = parts(task.due_at, timeZone);
@@ -636,7 +669,7 @@ async function moveTask(taskId, target, order) {
     if (!isMoved && !orderChanged) return item;
     return { ...item, ...(isMoved ? patch : {}), ...(position !== undefined ? { sort_order: position } : {}), updated_at: now, dirty: true };
   });
-  const label = target.kind === 'none' ? 'без срока' : target.kind === 'later' ? 'на следующую неделю' : `на ${dueDayLabelFor(target.date)}`;
+  const label = target.kind === 'none' ? 'без срока' : `на ${dueDayLabelFor(target.date)}`;
   bridge.log('перетаскивание', `«${task.title}» → ${label}${Object.keys(patch).length ? '' : ' (изменён порядок)'}`);
   await saveTasks(next, Object.keys(patch).length ? `«${task.title}» — ${label}` : null);
 }
@@ -749,6 +782,7 @@ function renderEditor() {
       ? { ...item, status: item.status === 'archived' ? 'open' : 'archived', updated_at: new Date().toISOString(), dirty: true }
       : item);
     state.draft = null;
+    state.selectedId = null; // карточка закрывается, задача уходит в архив (кнопка ▤ сверху)
     await saveTasks(next, task.status === 'archived' ? 'Возвращено из архива' : 'Убрано в архив');
   };
   $('fDelete').onclick = async () => {
@@ -829,10 +863,12 @@ function selectTask(taskId) {
   render();
 }
 
-// --- Быстрое добавление ---
+// --- Добавление задачи: окно по центру с умной строкой ---
 let previewTimer = null;
 async function updatePreview() {
-  const text = $('quickInput').value.trim();
+  const input = $('quickInput');
+  if (!input) return;
+  const text = input.value.trim();
   if (!text) { $('quickPreview').textContent = ''; return; }
   const parsed = await bridge.preview(text);
   const bits = [];
@@ -846,8 +882,29 @@ async function updatePreview() {
   $('quickPreview').textContent = bits.join(' · ');
 }
 
+function openAdd() {
+  $('addBody').innerHTML = `
+    <div class="editor-head">
+      <h3>Новая задача</h3>
+      <button class="icon-btn" id="addClose" title="Закрыть (Esc)">×</button>
+    </div>
+    <div class="quick"><input id="quickInput" placeholder="купить фильтр завтра 19:00 !2 #дом" autocomplete="off" /></div>
+    <div class="preview" id="quickPreview"></div>
+    <p class="hint" style="margin:10px 0 0">Просто напиши задачу словами. Понимает: <b>завтра 19:00</b>, <b>в пятницу в 10</b>, <b>через 3 дня</b>, <b>!3</b> — приоритет, <b>#дом</b> — проект, <b>+срочно</b> — тег, <b>за день за час</b> — напоминания, <b>каждый день</b> / <b>по будням</b>. Без даты — попадёт в «Без срока».</p>
+    <div class="actions"><button class="primary" id="addSubmit">Добавить</button><button class="ghost" id="addCancel">Отмена</button></div>`;
+  $('addModal').classList.add('open');
+  const input = $('quickInput');
+  input.addEventListener('input', () => { clearTimeout(previewTimer); previewTimer = setTimeout(updatePreview, 180); });
+  input.addEventListener('keydown', (event) => { if (event.key === 'Enter') quickAdd(); });
+  $('addSubmit').onclick = quickAdd;
+  $('addClose').onclick = closeAdd;
+  $('addCancel').onclick = closeAdd;
+  setTimeout(() => input.focus(), 30);
+}
+function closeAdd() { $('addModal').classList.remove('open'); }
+
 async function quickAdd() {
-  const text = $('quickInput').value.trim();
+  const text = $('quickInput')?.value.trim();
   if (!text) return;
   const parsed = await bridge.preview(text);
   bridge.log('быстрый ввод', text);
@@ -862,10 +919,47 @@ async function quickAdd() {
     recurrence: parsed.recurrence,
     remind_offsets: offsets,
   });
-  $('quickInput').value = '';
-  $('quickPreview').textContent = '';
+  closeAdd();
   await saveTasks([...state.tasks, task], `Добавлено: ${task.title}`);
 }
+
+// --- Архив ---
+function renderArchive() {
+  const items = state.tasks.filter((task) => task.status === 'archived').sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at));
+  $('archiveBody').innerHTML = `
+    <div class="editor-head">
+      <h3>Архив <span class="hint">· ${items.length ? `${items.length} задач` : 'пусто'}</span></h3>
+      <button class="icon-btn" id="archiveClose" title="Закрыть (Esc)">×</button>
+    </div>
+    ${items.length ? items.map((task) => `
+      <div class="arch-row" data-id="${task.id}">
+        <span class="t" title="${escapeHtml(task.title)}">${escapeHtml(task.title)}</span>
+        <span class="m">${task.due_at ? escapeHtml(dueDayLabel(task)) : 'без срока'}${task.project ? ` · #${escapeHtml(task.project)}` : ''}</span>
+        <button class="ghost" data-restore="${task.id}">Вернуть</button>
+        <button class="danger" data-remove="${task.id}">Удалить</button>
+      </div>`).join('') : '<p class="hint">Сюда попадают задачи после кнопки «В архив» в карточке. Их можно вернуть или удалить насовсем.</p>'}`;
+  $('archiveClose').onclick = closeArchive;
+  $('archiveBody').querySelectorAll('[data-restore]').forEach((button) => {
+    button.onclick = async () => {
+      const id = button.dataset.restore;
+      const task = state.tasks.find((item) => item.id === id);
+      await saveTasks(state.tasks.map((item) => (item.id === id ? { ...item, status: 'open', updated_at: new Date().toISOString(), dirty: true } : item)), `Возвращено: ${task?.title ?? ''}`);
+      renderArchive();
+    };
+  });
+  $('archiveBody').querySelectorAll('[data-remove]').forEach((button) => {
+    button.onclick = async () => {
+      const id = button.dataset.remove;
+      await bridge.remove(id);
+      state.tasks = state.tasks.filter((item) => item.id !== id);
+      render();
+      renderArchive();
+      toast('Задача удалена');
+    };
+  });
+}
+function openArchive() { renderArchive(); $('archiveModal').classList.add('open'); }
+function closeArchive() { $('archiveModal').classList.remove('open'); }
 
 // --- Настройки ---
 function renderSettings() {
@@ -1078,6 +1172,7 @@ function render() {
   renderBoard();
   renderEditor();
   if ($('drawer').style.display === 'block') renderSettings();
+  if ($('archiveModal').classList.contains('open')) renderArchive();
 
   const cloud = state.cloud || {};
   $('cloudDot').className = `dot ${!cloud.configured ? '' : cloud.signedIn ? (cloud.error ? 'warn' : 'ok') : 'warn'}`;
@@ -1090,9 +1185,13 @@ function render() {
   $('showDone').classList.toggle('on', state.showDone);
 }
 
-$('quickInput').addEventListener('input', () => { clearTimeout(previewTimer); previewTimer = setTimeout(updatePreview, 180); });
-$('quickInput').addEventListener('keydown', (event) => { if (event.key === 'Enter') quickAdd(); });
-$('quickAdd').onclick = quickAdd;
+$('quickAdd').onclick = openAdd;
+$('archiveButton').onclick = openArchive;
+$('weekPrev').onclick = () => { state.weekOffset -= 1; renderBoard(); };
+$('weekNext').onclick = () => { state.weekOffset += 1; renderBoard(); };
+$('weekLabel').onclick = () => { state.weekOffset = 0; renderBoard(); };
+$('addModal').addEventListener('mousedown', (event) => { if (event.target === $('addModal')) closeAdd(); });
+$('archiveModal').addEventListener('mousedown', (event) => { if (event.target === $('archiveModal')) closeArchive(); });
 $('search').addEventListener('input', () => { state.search = $('search').value; render(); });
 $('showDone').onclick = () => { state.showDone = !state.showDone; render(); };
 $('settingsButton').onclick = openDrawer;
@@ -1109,10 +1208,12 @@ $('logModal').addEventListener('mousedown', (event) => { if (event.target === $(
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     if ($('logModal').classList.contains('open')) { closeLog(); return; }
+    if ($('addModal').classList.contains('open')) { closeAdd(); return; }
+    if ($('archiveModal').classList.contains('open')) { closeArchive(); return; }
     if ($('modal').classList.contains('open')) { state.draft = null; state.selectedId = null; render(); return; }
     closeDrawer();
   }
-  if (event.key === 'n' && event.ctrlKey) { event.preventDefault(); $('quickInput').focus(); }
+  if (event.key === 'n' && event.ctrlKey) { event.preventDefault(); openAdd(); }
 });
 
 let resizeTimer = null;
