@@ -1,6 +1,6 @@
 {
   "name": "lltasker",
-  "version": "0.3.14",
+  "version": "0.3.15",
   "private": true,
   "type": "module",
   "description": "LLTasker — таск-трекер для Windows с облачной синхронизацией и напоминаниями в Telegram",
@@ -8,14 +8,15 @@
   "main": "desktop/main.js",
   "scripts": {
     "start": "electron .",
-    "test": "node tests/parser.test.mjs && node tests/db.test.mjs && node tests/sync.test.mjs && node tests/reminders.test.mjs && node tests/logger.test.mjs",
+    "test": "node tests/parser.test.mjs && node tests/db.test.mjs && node tests/sync.test.mjs && node tests/reminders.test.mjs && node tests/logger.test.mjs && node tests/calendar.test.mjs",
     "dist:win": "electron-builder --win nsis --x64 --publish never",
     "dist:portable": "electron-builder --win portable --x64 --publish never",
     "release:win": "electron-builder --win nsis --x64 --publish always"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.109.0",
-    "electron-updater": "6.8.9"
+    "electron-updater": "6.8.9",
+    "ical.js": "^2.2.1"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",

@@ -86,3 +86,18 @@ on conflict do nothing
 returning task_id as "задача", fire_at as "отправить в";
 -- Если вернулось 0 строк — нет открытых задач со сроком в облаке (см. блок A).
 -- Проверить результат через минуту: блок D — статус sent и время отправки.
+
+
+-- ── Блок G. Что случилось с конкретной задачей (подставьте часть названия) ────
+select t.title, t.status as "задача", to_char(t.due_at at time zone p.timezone, 'DD.MM HH24:MI') as "срок",
+       r.offset_minutes as "за, мин", to_char(r.fire_at at time zone p.timezone, 'DD.MM HH24:MI') as "отправить в",
+       r.status, r.attempts, left(coalesce(r.last_error, ''), 80) as "ошибка", to_char(r.updated_at at time zone p.timezone, 'DD.MM HH24:MI:SS') as "изменено"
+from public.tasks t
+join public.profiles p on p.id = t.user_id
+left join public.task_reminders r on r.user_id = t.user_id and r.task_id = t.id
+where t.title ilike '%Дифы%'
+order by r.fire_at;
+-- Нет строк вообще — задача не долетела в облако (в приложении нет входа или синхронизация в ошибке).
+-- status = cancelled при открытой задаче с тем же сроком — «залипшее» напоминание: выполните
+--   supabase/migrations/202610090002_reminders_revive.sql (чинит на будущее и оживляет текущие).
+-- status = pending с attempts > 0 и ошибкой — проблема доставки (токен бота / chat_id), смотрите текст ошибки.

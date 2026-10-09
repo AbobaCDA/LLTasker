@@ -18,6 +18,8 @@ export const DEFAULT_SETTINGS = {
   wallpaperFile: '', // имя файла своей картинки внутри папки данных
   panelOpacity: 10, // прозрачность колонок дней и карточек, % (общая)
   cardScale: 100, // размер карточек, %
+  workCalendarUrl: '', // опубликованная ссылка .ics рабочего календаря (Exchange/OWA); только чтение
+  workCalendarShow: true, // показывать встречи на сетке дня
 };
 
 function emptyState() {
@@ -44,6 +46,8 @@ export function normalizeState(raw) {
   delete settings.cardOpacity; // старая настройка до 0.3.3 — больше не используется
   const scale = Number(settings.cardScale);
   settings.cardScale = Number.isFinite(scale) ? Math.min(160, Math.max(25, Math.round(scale / 5) * 5)) : 100;
+  settings.workCalendarUrl = typeof settings.workCalendarUrl === 'string' ? settings.workCalendarUrl.trim() : '';
+  settings.workCalendarShow = settings.workCalendarShow !== false;
   const digestMatch = /^(\d{1,2}):(\d{2})$/.exec(String(settings.digestAt));
   const digestValid = digestMatch && Number(digestMatch[1]) <= 23 && Number(digestMatch[2]) <= 59;
   settings.digestAt = digestValid ? `${String(Number(digestMatch[1])).padStart(2, '0')}:${digestMatch[2]}` : '09:00';

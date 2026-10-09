@@ -1,6 +1,6 @@
 // Главный процесс LLTasker: окно, трей, автозапуск, автообновление,
 // локальные напоминания Windows и синхронизация с облаком.
-import { app, BrowserWindow, Menu, Notification, Tray, dialog, ipcMain, nativeImage, shell } from 'electron';
+import { app, BrowserWindow, Menu, Notification, Tray, dialog, ipcMain, nativeImage, session, shell } from 'electron';
 // electron-updater — CommonJS-пакет: именованный импорт { autoUpdater } падает в ESM,
 // поэтому берём default-экспорт и достаём autoUpdater из него.
 import electronUpdater from 'electron-updater';
@@ -17,6 +17,7 @@ import { AUTH_FILE, STATE_FILE, createStore, queueDelete, queueUpsert } from './
 import * as cloud from './cloud.js';
 import { reconcileAfterSync } from './sync-merge.js';
 import { createLogger, describeChanges, describeTask } from './logger.js';
+import { calendarWindow, looksLikeIcs, parseIcs } from './calendar.js';
 
 const APP_DATA_FOLDER = 'LLTasker';
 const LEGACY_DATA_FOLDER = 'ForgeTasks'; // папка версий до переименования
@@ -53,6 +54,11 @@ const directory = fileURLToPath(new URL('.', import.meta.url));
 importLegacyData();
 const store = createStore(app.getPath('userData'));
 const logger = createLogger(join(app.getPath('userData'), 'logs'));
+// Интегрированная Windows-аутентификация (NTLM/Kerberos) — только для хоста рабочего календаря.
+try {
+  const host = new URL(store.read().settings.workCalendarUrl || 'http://invalid').host;
+  if (host && host !== 'invalid') { app.commandLine.appendSwitch('auth-server-whitelist', host); app.commandLine.appendSwitch('auth-negotiate-delegate-whitelist', host); }
+} catch { /* ссылка не задана или кривая — без белого списка */ }
 /** Запись в журнал действий (никогда не бросает). */
 function log(event, details = '') { logger.log(event, details); }
 /** Срок задачи для журнала — в часовом поясе из настроек. */
@@ -107,23 +113,29 @@ async function currentCloudState() {
 
 // --- Напоминания Windows -------------------------------------------------------
 
+let reminderTimeout = null; // единственный таймер ближайшего напоминания: каждый пересчёт заменяет предыдущий
+
 function rescheduleReminders() {
+  if (reminderTimeout) { clearTimeout(reminderTimeout); reminderTimeout = null; }
   const state = store.read();
   if (state.settings.notifications === 'telegram' || state.settings.notifications === 'off') return;
   const timeZone = state.settings.timezone || 'Europe/Moscow';
   const [due] = computeUpcomingReminders(state.tasks, { now: new Date(), fired: state.sync.fired, limit: 1 });
   if (!due) return;
   const delay = Math.max(500, Date.parse(due.fireAt) - Date.now());
-  setTimeout(() => {
+  reminderTimeout = setTimeout(() => {
+    reminderTimeout = null;
     showReminder(due, timeZone);
     rescheduleReminders();
-  }, Math.min(delay, 2_147_000_000)).unref?.();
+  }, Math.min(delay, 2_147_000_000));
+  reminderTimeout.unref?.();
 }
 
 function showReminder(reminder, timeZone) {
   const state = store.read();
   const task = state.tasks.find((item) => item.id === reminder.taskId);
   if (!task || task.status !== 'open') return;
+  if (state.sync.fired.includes(reminder.key)) return; // уже показывали — не дублируем
 
   const dueLabel = formatDue(task.due_at, timeZone, task.all_day);
   const { title, body } = notificationText(reminder, dueLabel, task.project);
@@ -279,6 +291,85 @@ function checkForUpdatesIfStale() {
   checkForUpdates();
 }
 
+// --- Рабочий календарь (.ics) ---------------------------------------------------
+const CALENDAR_PARTITION = 'persist:work-calendar'; // отдельные cookie — вход в корпоративный SSO живёт здесь
+const CALENDAR_INTERVAL_MS = 10 * 60_000;
+let calendarState = { status: 'off', updatedAt: null, count: 0, error: '', needLogin: false, events: [] };
+let calendarTimer = null;
+let calendarInFlight = null;
+let calendarLoginWindow = null;
+
+function calendarSession() { return session.fromPartition(CALENDAR_PARTITION); }
+function publishCalendar(patch = {}) {
+  calendarState = { ...calendarState, ...patch };
+  sendToWindow('calendar:status', calendarState);
+}
+function calendarPublicState() { return calendarState; }
+
+/** Забирает .ics по ссылке из настроек; HTML вместо календаря = нужен вход через окно. */
+function refreshCalendar(reason = 'по расписанию') {
+  const url = settings().workCalendarUrl;
+  if (!url) { publishCalendar({ status: 'off', events: [], count: 0, error: '', needLogin: false }); return Promise.resolve(calendarState); }
+  if (calendarInFlight) return calendarInFlight;
+  calendarInFlight = (async () => {
+    publishCalendar({ status: 'loading' });
+    try {
+      const response = await calendarSession().fetch(url, { credentials: 'include', redirect: 'follow', headers: { Accept: 'text/calendar, */*;q=0.5' }, cache: 'no-store' });
+      const text = await response.text();
+      if (!response.ok && !looksLikeIcs(text)) {
+        const needLogin = [401, 403, 503].includes(response.status) || /adfs|login|signin|sso/i.test(response.url);
+        publishCalendar({ status: needLogin ? 'needLogin' : 'error', needLogin, error: needLogin ? '' : `HTTP ${response.status}` });
+        log('рабочий календарь', `${reason}: HTTP ${response.status}${needLogin ? ' — нужен вход' : ''}`);
+        return calendarState;
+      }
+      if (!looksLikeIcs(text)) {
+        publishCalendar({ status: 'needLogin', needLogin: true, error: '' });
+        log('рабочий календарь', `${reason}: вместо .ics пришла страница (${response.url.replace(/\?.*$/, '')}) — нужен вход`);
+        return calendarState;
+      }
+      const events = parseIcs(text, calendarWindow());
+      publishCalendar({ status: 'ok', needLogin: false, error: '', events, count: events.length, updatedAt: new Date().toISOString() });
+      log('рабочий календарь', `${reason}: ${events.length} встреч`);
+    } catch (error) {
+      const message = String(error?.message ?? error);
+      publishCalendar({ status: 'error', error: /ENOTFOUND|ECONNREFUSED|ERR_NAME_NOT_RESOLVED|ERR_CONNECTION|ETIMEDOUT|fetch failed/i.test(message) ? 'сервер недоступен (VPN?)' : message });
+      log('рабочий календарь', `${reason}: ошибка — ${message}`);
+    }
+    return calendarState;
+  })().finally(() => { calendarInFlight = null; });
+  return calendarInFlight;
+}
+
+function startCalendarLoop() {
+  if (calendarTimer) clearInterval(calendarTimer);
+  calendarTimer = setInterval(() => { if (settings().workCalendarUrl) refreshCalendar(); }, CALENDAR_INTERVAL_MS);
+}
+
+/** Окно корпоративного входа: открываем саму ссылку, SSO ставит cookie в наш раздел, затем .ics забираем сами. */
+function openCalendarLogin() {
+  const url = settings().workCalendarUrl;
+  if (!url) return { ok: false, reason: 'no-url' };
+  if (calendarLoginWindow && !calendarLoginWindow.isDestroyed()) { calendarLoginWindow.focus(); return { ok: true }; }
+  const ses = calendarSession();
+  calendarLoginWindow = new BrowserWindow({
+    width: 560, height: 720, parent: mainWindow ?? undefined, title: 'Вход в рабочий календарь', autoHideMenuBar: true,
+    webPreferences: { partition: CALENDAR_PARTITION, sandbox: true, contextIsolation: true, nodeIntegration: false },
+  });
+  const win = calendarLoginWindow;
+  const finish = async () => {
+    const state = await refreshCalendar('после входа');
+    if (state.status === 'ok' && win && !win.isDestroyed()) win.close();
+  };
+  // Когда SSO пройден, сервер отдаёт .ics — Chromium предложит скачать файл. Скачивание не нужно: cookie уже есть.
+  const onDownload = (event) => { event.preventDefault(); finish(); };
+  ses.on('will-download', onDownload);
+  win.webContents.on('did-finish-load', () => { if (!/adfs|login|signin|sso/i.test(win.webContents.getURL())) finish(); });
+  win.on('closed', () => { ses.removeListener('will-download', onDownload); calendarLoginWindow = null; });
+  win.loadURL(url).catch(() => {});
+  log('рабочий календарь', 'открыто окно входа');
+  return { ok: true };
+}
+
 // --- Окно, трей, автозапуск ----------------------------------------------------
 
 function createWindow() {
@@ -363,6 +454,7 @@ function registerIpc() {
       cloud: await currentCloudState(),
       update: updateState,
       startup: startupEnabled(),
+      calendar: calendarPublicState(),
     };
   });
 
@@ -423,12 +515,16 @@ function registerIpc() {
   ipcMain.handle('settings:save', async (_event, patch) => {
     const shown = Object.entries(patch ?? {}).map(([key, value]) => `${key}=${key === 'supabaseKey' ? '…' : String(value)}`).join(', ');
     if (shown) log('настройки изменены', shown);
+    const before = settings().workCalendarUrl;
     const state = store.update((draft) => {
       draft.settings = { ...draft.settings, ...(patch ?? {}) };
       return draft;
     });
     cloud.configure(state.settings);
     rescheduleReminders();
+    if (state.settings.workCalendarUrl !== before) {
+      if (state.settings.workCalendarUrl) refreshCalendar('ссылка изменена'); else publishCalendar({ status: 'off', events: [], count: 0, error: '', needLogin: false });
+    }
     // Если вошли в аккаунт, переносим часовой пояс и дайджест в облако (от него работают напоминания в боте).
     try {
       const cloudState = await cloud.getState();
@@ -479,6 +575,9 @@ function registerIpc() {
     autoUpdater.quitAndInstall(true, true);
   });
   ipcMain.handle('shell:open-data-folder', () => shell.openPath(app.getPath('userData')));
+  ipcMain.handle('calendar:state', () => calendarPublicState());
+  ipcMain.handle('calendar:refresh', () => refreshCalendar('вручную'));
+  ipcMain.handle('calendar:login', () => openCalendarLogin());
 
   // --- Журнал действий ---
   ipcMain.handle('log:write', (_event, event, details) => { log(String(event ?? '').slice(0, 80), String(details ?? '').slice(0, 500)); return true; });
@@ -542,6 +641,8 @@ if (!app.requestSingleInstanceLock()) {
     createWindow();
     createTray();
     startLoops();
+    startCalendarLoop();
+    if (settings().workCalendarUrl) refreshCalendar('при запуске');
     cloud.onStatusChange((state) => sendToWindow('cloud:status', state));
     cloud.configure(settings());
     if (!process.argv.includes('--hidden')) mainWindow.show();

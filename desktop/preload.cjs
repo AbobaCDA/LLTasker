@@ -7,6 +7,7 @@ const channels = {
   onCloudStatus: 'cloud:status',
   onUpdateStatus: 'update:status',
   onFocusTask: 'tasks:focus',
+  onCalendar: 'calendar:status',
 };
 
 contextBridge.exposeInMainWorld('lltasker', {
@@ -37,9 +38,13 @@ contextBridge.exposeInMainWorld('lltasker', {
   openLogFolder: () => ipcRenderer.invoke('log:open-folder'),
   chooseWallpaper: () => ipcRenderer.invoke('wallpaper:choose'),
   hideWindow: () => ipcRenderer.invoke('window:hide'),
+  calendarState: () => ipcRenderer.invoke('calendar:state'),
+  calendarRefresh: () => ipcRenderer.invoke('calendar:refresh'),
+  calendarLogin: () => ipcRenderer.invoke('calendar:login'),
 
   onTasksChanged: (handler) => ipcRenderer.on(channels.onTasksChanged, (_event, tasks) => handler(tasks)),
   onCloudStatus: (handler) => ipcRenderer.on(channels.onCloudStatus, (_event, state) => handler(state)),
   onUpdateStatus: (handler) => ipcRenderer.on(channels.onUpdateStatus, (_event, state) => handler(state)),
   onFocusTask: (handler) => ipcRenderer.on(channels.onFocusTask, (_event, taskId) => handler(taskId)),
+  onCalendar: (handler) => ipcRenderer.on(channels.onCalendar, (_event, state) => handler(state)),
 });

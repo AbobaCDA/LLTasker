@@ -116,6 +116,27 @@ const cancelledAfterMove = afterMove.find((r) => r.status === 'cancelled')?.n ??
 check('после переноса дедлайна старые напоминания отменены', cancelledAfterMove === 4, `cancelled=${cancelledAfterMove}`);
 check('после переноса дедлайна созданы новые напоминания', pendingAfterMove === 4, `pending=${pendingAfterMove}`);
 
+// Срок вернули на место (перетащили и передумали / закрыли и снова открыли) — напоминания должны ожить, а не остаться cancelled
+await db.query(`update public.tasks set due_at = now() + interval '7 days' where user_id = $1 and id = 't-pay'`, [userId]);
+await db.query(`update public.tasks set status = 'done' where user_id = $1 and id = 't-pay'`, [userId]);
+await db.query(`update public.tasks set status = 'open' where user_id = $1 and id = 't-pay'`, [userId]);
+const { rows: afterRevive } = await db.query(
+  `select status, count(*)::int as n from public.task_reminders r where user_id = $1 and task_id = 't-pay'
+     and due_at = (select due_at from public.tasks where user_id = $1 and id = 't-pay') group by status order by status`,
+  [userId]
+);
+const pendingAfterRevive = afterRevive.find((r) => r.status === 'pending')?.n ?? 0;
+const cancelledAfterRevive = afterRevive.find((r) => r.status === 'cancelled')?.n ?? 0;
+check('после закрытия и повторного открытия задачи напоминания снова pending', pendingAfterRevive === 4, `pending=${pendingAfterRevive}`);
+check('залипших cancelled с актуальным сроком нет', cancelledAfterRevive === 0, `cancelled=${cancelledAfterRevive}`);
+const { rows: sentKeep } = await db.query(
+  `with s as (update public.task_reminders set status = 'sent' where user_id = $1 and task_id = 't-pay' and status = 'pending' and offset_minutes = 1440 returning id)
+   select count(*)::int as n from s`, [userId]);
+await db.query(`update public.tasks set status = 'done' where user_id = $1 and id = 't-pay'`, [userId]);
+await db.query(`update public.tasks set status = 'open' where user_id = $1 and id = 't-pay'`, [userId]);
+const { rows: stillSent } = await db.query(`select count(*)::int as n from public.task_reminders where user_id = $1 and task_id = 't-pay' and status = 'sent' and offset_minutes = 1440`, [userId]);
+check('уже отправленное напоминание повторно не оживает', sentKeep[0].n === 1 && stillSent[0].n === 1, `sent=${stillSent[0].n}`);
+
 // Задача без дедлайна и с пустым набором смещений — напоминаний нет
 await db.query(`insert into public.tasks (user_id, id, title, remind_offsets) values ($1, 't-someday', 'Когда-нибудь', '{}')`, [userId]);
 const { rows: noReminders } = await db.query(`select count(*)::int as n from public.task_reminders where task_id = 't-someday'`);
