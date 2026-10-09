@@ -91,10 +91,14 @@
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
   .dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.err { background: var(--danger); }
 
-  /* --- Неделя: 7 колонок --- */
-  .board { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; padding: 4px 14px 8px; }
+  /* --- Доска: колонка «Сегодня» + календарная неделя пн–вс --- */
+  .board { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.08fr) repeat(7, minmax(0, 1fr)); gap: 7px; padding: 4px 14px 8px; }
+  .col.today-pane { margin-right: 8px; }
+  .col.is-today .col-head .name { color: var(--accent); }
+  .col.is-today { box-shadow: inset 0 3px 0 var(--accent); }
+  .col.past { opacity: .78; }
+  .col-body .same-day { color: var(--muted); font-size: 11px; text-align: center; padding: 10px 6px; line-height: 1.4; }
   .col { display: flex; flex-direction: column; min-height: 0; border-radius: var(--radius); background: rgba(var(--card-rgb), var(--panel-alpha)); }
-  .col.today { box-shadow: inset 0 3px 0 var(--accent); }
   .col.drop { outline: 2px dashed var(--accent); outline-offset: -2px; }
   .col-head { padding: 10px 10px 6px; display: grid; grid-template-columns: 1fr auto; column-gap: 6px; align-items: baseline; }
   .col-head .name { font-weight: 600; font-size: 13px; letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -102,7 +106,20 @@
   .col.weekend .col-head .name { color: var(--danger); opacity: .85; }
   .col-head .n { font-size: 11px; color: var(--muted); }
   .shelf .col-head { grid-template-columns: auto 1fr; }
-  .col-body { flex: 1; min-height: 40px; overflow-y: auto; padding: 4px 8px 8px; display: flex; flex-direction: column; gap: 8px; }
+  .col-body { flex: 1; min-height: 40px; overflow-y: auto; padding: 4px 7px 7px; display: flex; flex-direction: column; gap: 7px; }
+  /* Выбор недели при перетаскивании: появляется сверху, пока тянешь карточку */
+  .weekpick { position: fixed; top: 6px; left: 50%; transform: translateX(-50%); z-index: 60; display: none; flex-direction: column; gap: 6px; padding: 8px 10px; border-radius: 14px; max-width: calc(100vw - 40px); box-shadow: 0 12px 40px rgba(0, 0, 0, .25); }
+  body.dragging .weekpick { display: flex; }
+  .weekpick .wk-row, .weekpick .wd-row { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+  .weekpick .wk { border: 1px solid var(--line); border-radius: 9px; padding: 4px 9px; font-size: 12px; color: var(--muted); background: rgba(var(--card-rgb), .35); white-space: nowrap; }
+  .weekpick .wk b { color: var(--text); font-weight: 600; }
+  .weekpick .wk.sel { border-color: var(--accent); background: var(--accent-soft); }
+  .weekpick .wk.over, .weekpick .wd.over { outline: 2px dashed var(--accent); outline-offset: -2px; }
+  .weekpick .wd { flex: 1; min-width: 64px; border: 1px solid var(--line); border-radius: 9px; padding: 5px 8px; text-align: center; font-size: 12px; background: rgba(var(--card-rgb), .35); }
+  .weekpick .wd b { display: block; font-size: 15px; }
+  .weekpick .wd.weekend b { color: var(--danger); }
+  .weekpick .wd.is-today { border-color: var(--accent); }
+  .weekpick .hint { text-align: center; margin: 0; font-size: 11px; }
   .col-body::-webkit-scrollbar { width: 6px; } .col-body::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
 
   /* --- Карточка-облачко --- */
@@ -212,6 +229,7 @@
   </header>
 
   <main class="board" id="board"></main>
+<div class="weekpick glass" id="weekPick"></div>
   <section class="shelf" id="shelf"></section>
 </div>
 
@@ -453,22 +471,30 @@ function dateAtNoon(dateString) {
 }
 function capitalize(text) { return text ? text[0].toUpperCase() + text.slice(1) : text; }
 
-/** Семь дней начиная с сегодня: ключ-дата, подпись и мелкая дата. */
-function weekDays() {
+/** Календарная неделя пн–вс со сдвигом state.weekOffset: ключ-дата, подпись, мелкая дата. */
+function weekDays(offset = state.weekOffset) {
   const timeZone = state.settings.timezone || 'Europe/Moscow';
   const today = todayLocal(timeZone);
   const tomorrow = addDaysLocal(timeZone, 1);
-  const narrow = window.innerWidth < 1040;
+  const narrow = window.innerWidth < 1280;
+  const mondayShift = (dateAtNoon(today).getUTCDay() + 6) % 7; // пн=0 … вс=6
   return Array.from({ length: 7 }, (_, index) => {
-    const date = addDaysLocal(timeZone, state.weekOffset * 7 + index);
+    const date = addDaysLocal(timeZone, -mondayShift + offset * 7 + index);
     const noon = dateAtNoon(date);
     const weekday = noon.getUTCDay();
-    const fullName = capitalize(WEEKDAY.format(noon));
-    const special = date === today ? 'Сегодня' : date === tomorrow ? 'Завтра' : null;
-    const name = special ?? (narrow ? capitalize(WEEKDAY_SHORT.format(noon)) : fullName);
-    const sub = special ? `${WEEKDAY_SHORT.format(noon)}, ${DAY_MONTH.format(noon).replace('.', '')}` : DAY_MONTH.format(noon).replace('.', '');
-    return { date, name, sub, weekend: weekday === 0 || weekday === 6, isToday: date === today };
+    const name = narrow ? capitalize(WEEKDAY_SHORT.format(noon)) : capitalize(WEEKDAY.format(noon));
+    const dm = DAY_MONTH.format(noon).replace('.', '');
+    const sub = date === today ? `${dm} · сегодня` : date === tomorrow ? `${dm} · завтра` : dm;
+    return { date, name, sub, weekend: weekday === 0 || weekday === 6, isToday: date === today, isPast: date < today };
   });
+}
+
+/** Колонка «Сегодня» слева: всегда видна, какую бы неделю ни листали. */
+function todayColumn() {
+  const timeZone = state.settings.timezone || 'Europe/Moscow';
+  const date = todayLocal(timeZone);
+  const noon = dateAtNoon(date);
+  return { date, name: 'Сегодня', sub: `${WEEKDAY_SHORT.format(noon)}, ${DAY_MONTH.format(noon).replace('.', '')}`, weekend: false, isToday: true, isPast: false };
 }
 
 /** Подпись диапазона недели для навигации. */
@@ -504,22 +530,23 @@ function byBoardOrder(left, right) {
 function boardData() {
   const timeZone = state.settings.timezone || 'Europe/Moscow';
   const days = weekDays();
-  const buckets = { days: new Map(days.map((day) => [day.date, []])), none: [] };
-  const first = days[0].date;
-  const last = days[6].date;
   const today = todayLocal(timeZone);
+  // «Сегодня» — отдельная колонка слева; в сетке недели её день остаётся, но карточки не дублируются.
+  const buckets = { today: [], days: new Map(days.map((day) => [day.date, []])), none: [] };
   for (const task of state.tasks) {
     if (task.status === 'archived') continue;
     if (task.status === 'done' && !state.showDone) continue;
     if (!matchesSearch(task)) continue;
     if (!task.due_at) { buckets.none.push(task); continue; }
     const date = localDate(task.due_at, timeZone);
-    if (buckets.days.has(date)) buckets.days.get(date).push(task);
-    else if (date < today && buckets.days.has(today)) buckets.days.get(today).push(task); // просроченные видны в «Сегодня»
+    if (date === today) buckets.today.push(task);
+    else if (date < today && task.status !== 'done') buckets.today.push(task); // просроченные — в «Сегодня», всегда на виду
+    else if (buckets.days.has(date)) buckets.days.get(date).push(task);
   }
+  buckets.today.sort(byBoardOrder);
   for (const list of buckets.days.values()) list.sort(byBoardOrder);
   buckets.none.sort(byBoardOrder);
-  return { days, buckets };
+  return { days, buckets, today };
 }
 
 function cardHtml(task, { showDay = false } = {}) {
@@ -546,14 +573,16 @@ function cardHtml(task, { showDay = false } = {}) {
 
 function renderBoard() {
   const { days, buckets } = boardData();
-  $('board').innerHTML = days.map((day, index) => {
-    const tasks = buckets.days.get(day.date);
-    return `
-      <section class="col ${day.isToday ? 'today' : ''} ${day.weekend ? 'weekend' : ''}" data-day="${day.date}">
+  const todayCol = todayColumn();
+  const columnHtml = (day, tasks, extraClass = '', body = null) => `
+      <section class="col ${extraClass} ${day.isToday ? 'is-today' : ''} ${day.isPast ? 'past' : ''} ${day.weekend ? 'weekend' : ''}" data-day="${day.date}">
         <div class="col-head"><span class="name">${day.name}</span><span class="n">${tasks.length || ''}</span><span class="date">${day.sub}</span></div>
-        <div class="col-body" data-zone="day" data-day="${day.date}">${tasks.map((task) => cardHtml(task)).join('')}</div>
+        <div class="col-body" data-zone="day" data-day="${day.date}">${body ?? tasks.map((task) => cardHtml(task)).join('')}</div>
       </section>`;
-  }).join('');
+  $('board').innerHTML = columnHtml(todayCol, buckets.today, 'today-pane')
+    + days.map((day) => day.isToday
+      ? columnHtml(day, buckets.today, '', '<div class="same-day">← задачи на сегодня — в колонке слева</div>')
+      : columnHtml(day, buckets.days.get(day.date))).join('');
 
   const pool = buckets.none;
   $('shelf').innerHTML = `
@@ -591,13 +620,78 @@ function onDragStart(event) {
   event.dataTransfer.setData('text/plain', dragId);
   placeholder = document.createElement('div');
   placeholder.className = 'placeholder';
+  // Полоску выбора недели показываем на следующем тике: правка DOM прямо в dragstart срывает перетаскивание в Chromium.
+  setTimeout(() => { if (dragId) { pickWeek = state.weekOffset + 1; renderWeekPick(); document.body.classList.add('dragging'); } }, 0);
 }
 function onDragEnd() {
   document.querySelectorAll('.card.dragging').forEach((card) => card.classList.remove('dragging'));
   document.querySelectorAll('.col.drop').forEach((col) => col.classList.remove('drop'));
+  document.body.classList.remove('dragging');
   placeholder?.remove();
   placeholder = null;
   dragId = null;
+}
+
+// --- Полоска выбора недели при перетаскивании: наведи на неделю — раскроются её дни, брось на число ---
+let pickWeek = 1;
+const PICK_OFFSETS = [-1, 0, 1, 2, 3, 4, 5];
+function pickWeekTag(offset) {
+  return offset === 0 ? 'эта' : offset === 1 ? 'след.' : offset === -1 ? 'пред.' : `+${offset}`;
+}
+function renderWeekPick() {
+  const timeZone = state.settings.timezone || 'Europe/Moscow';
+  const today = todayLocal(timeZone);
+  const weeks = PICK_OFFSETS.map((offset) => {
+    const days = weekDays(offset);
+    const a = DAY_MONTH.format(dateAtNoon(days[0].date)).replace('.', '');
+    const b = DAY_MONTH.format(dateAtNoon(days[6].date)).replace('.', '');
+    return { offset, days, label: `${a} – ${b}` };
+  });
+  const selected = weeks.find((week) => week.offset === pickWeek) ?? weeks[2];
+  $('weekPick').innerHTML = `
+    <div class="wk-row">${weeks.map((week) => `<div class="wk ${week.offset === selected.offset ? 'sel' : ''}" data-week="${week.offset}">${pickWeekTag(week.offset)} <b>${week.label}</b></div>`).join('')}</div>
+    <div class="wd-row">${selected.days.map((day) => `<div class="wd ${day.weekend ? 'weekend' : ''} ${day.date === today ? 'is-today' : ''}" data-date="${day.date}">${WEEKDAY_SHORT.format(dateAtNoon(day.date))}<b>${dateAtNoon(day.date).getUTCDate()}</b></div>`).join('')}</div>
+    <p class="hint">Наведи на неделю — откроются её дни. Брось карточку на число.</p>`;
+  $('weekPick').querySelectorAll('.wk').forEach((chip) => {
+    chip.addEventListener('dragenter', (event) => {
+      event.preventDefault();
+      const offset = Number(chip.dataset.week);
+      if (offset !== pickWeek) { pickWeek = offset; renderWeekPick(); }
+    });
+    chip.addEventListener('dragover', (event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; chip.classList.add('over'); });
+    chip.addEventListener('dragleave', () => chip.classList.remove('over'));
+    chip.addEventListener('drop', async (event) => {
+      // Бросили на саму неделю — тот же день недели в выбранной неделе.
+      event.preventDefault();
+      const taskId = dragId || event.dataTransfer.getData('text/plain');
+      const task = state.tasks.find((item) => item.id === taskId);
+      onDragEnd();
+      if (!task) return;
+      const days = weekDays(Number(chip.dataset.week));
+      const current = task.due_at ? localDate(task.due_at, timeZone) : today;
+      const weekdayIndex = (dateAtNoon(current).getUTCDay() + 6) % 7;
+      await dropOnDate(taskId, days[weekdayIndex].date);
+    });
+  });
+  $('weekPick').querySelectorAll('.wd').forEach((cell) => {
+    cell.addEventListener('dragover', (event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; cell.classList.add('over'); });
+    cell.addEventListener('dragleave', () => cell.classList.remove('over'));
+    cell.addEventListener('drop', async (event) => {
+      event.preventDefault();
+      const taskId = dragId || event.dataTransfer.getData('text/plain');
+      onDragEnd();
+      if (taskId) await dropOnDate(taskId, cell.dataset.date);
+    });
+  });
+}
+/** Перенос на дату, которой может не быть на экране: встаёт в конец этого дня. */
+async function dropOnDate(taskId, date) {
+  const timeZone = state.settings.timezone || 'Europe/Moscow';
+  const sameDay = state.tasks
+    .filter((task) => task.id !== taskId && task.status !== 'archived' && task.due_at && localDate(task.due_at, timeZone) === date)
+    .sort(byBoardOrder)
+    .map((task) => task.id);
+  await moveTask(taskId, { kind: 'day', date }, [...sameDay, taskId]);
 }
 function onDragOver(event) {
   if (!dragId) return;
@@ -670,9 +764,11 @@ async function moveTask(taskId, target, order) {
   await saveTasks(next, Object.keys(patch).length ? `«${task.title}» — ${label}` : null);
 }
 function dueDayLabelFor(dateString) {
-  const days = weekDays();
-  const found = days.find((day) => day.date === dateString);
-  return found ? (found.name === 'Сегодня' || found.name === 'Завтра' ? found.name.toLowerCase() : `${found.name.toLowerCase()}, ${found.sub}`) : dateString;
+  const timeZone = state.settings.timezone || 'Europe/Moscow';
+  if (dateString === todayLocal(timeZone)) return 'сегодня';
+  if (dateString === addDaysLocal(timeZone, 1)) return 'завтра';
+  const noon = dateAtNoon(dateString);
+  return `${WEEKDAY_SHORT.format(noon)}, ${DAY_MONTH.format(noon).replace('.', '')}`;
 }
 async function toggleDone(taskId) {
   const task = state.tasks.find((item) => item.id === taskId);
@@ -1173,7 +1269,7 @@ function updateLabel(update) {
     checking: 'Проверяем обновления…',
     available: `Найдена версия ${update.version}. Скачиваем.`,
     downloading: `Скачивание: ${update.percent ?? 0}%`,
-    ready: `Версия ${update.version} готова к установке.`,
+    ready: `Версия ${update.version} скачана. Обновление пройдёт без окон: приложение закроется и само откроется через несколько секунд.`,
     current: 'Установлена последняя версия.',
     error: `Ошибка обновления: ${update.error || 'неизвестно'}`,
   };

@@ -449,7 +449,11 @@ function registerIpc() {
   ipcMain.handle('updates:check', () => checkForUpdates());
   ipcMain.handle('updates:install', () => {
     app.isQuitting = true;
-    autoUpdater.quitAndInstall();
+    log('обновление: установка', String(updateState.version ?? ''));
+    // Установщик у нас пошаговый (oneClick: false — выбор папки при первой установке).
+    // Без isSilent=true он показывает весь мастер заново, как при переустановке.
+    // isSilent=true: тихая замена файлов в уже выбранной папке; isForceRunAfter=true: сразу запустить приложение.
+    autoUpdater.quitAndInstall(true, true);
   });
   ipcMain.handle('shell:open-data-folder', () => shell.openPath(app.getPath('userData')));
 
