@@ -175,6 +175,30 @@
   .field textarea { resize: vertical; min-height: 56px; }
   .field input[type=range] { padding: 0; border: 0; background: transparent; }
   .row { display: flex; gap: 10px; }
+  .field input.bad { border-color: var(--danger); }
+  /* Всплывающий выбор даты / времени под полем (текст в поле и выбор синхронны) */
+  .picker { position: fixed; z-index: 70; background: rgba(var(--card-rgb), .94); backdrop-filter: blur(16px); border: 1px solid var(--card-line); border-radius: 12px; padding: 10px; box-shadow: 0 14px 40px rgba(0, 0, 0, .25); user-select: none; }
+  .picker button { border: 0; background: transparent; color: var(--text); border-radius: 8px; font-size: 13px; cursor: pointer; padding: 0; }
+  .picker button:hover { background: var(--accent-soft); }
+  .picker button.sel { background: var(--accent); color: #fff; }
+  .picker button.now { box-shadow: inset 0 0 0 1px var(--accent); }
+  .cal { width: 238px; }
+  .cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .cal-head b { font-weight: 600; font-size: 13px; text-transform: capitalize; }
+  .cal-head button { width: 28px; height: 28px; font-size: 18px; color: var(--muted); }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+  .cal-grid span { text-align: center; font-size: 11px; color: var(--muted); padding: 2px 0 4px; }
+  .cal-grid span.we, .cal-grid button.we { color: var(--danger); }
+  .cal-grid button { height: 30px; }
+  .cal-grid button.other { opacity: .35; }
+  .cal-foot { display: flex; gap: 6px; margin-top: 8px; }
+  .cal-foot button { flex: 1; font-size: 12px; color: var(--muted); padding: 5px 0; border: 1px solid var(--line); }
+  .tp { display: flex; gap: 8px; }
+  .tp-col { display: flex; flex-direction: column; gap: 2px; max-height: 216px; overflow-y: auto; padding-right: 2px; scrollbar-width: thin; }
+  .tp-col button { width: 56px; height: 28px; flex: none; }
+  .tp-col::-webkit-scrollbar { width: 5px; } .tp-col::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+  .tp-foot { margin-top: 8px; display: flex; gap: 6px; }
+  .tp-foot button { flex: 1; font-size: 11px; color: var(--muted); padding: 5px 6px; border: 1px solid var(--line); white-space: nowrap; }
   .row > * { flex: 1; }
   .offsets { display: flex; flex-wrap: wrap; gap: 6px; }
   .offsets button { border: 1px solid var(--line); background: transparent; color: var(--muted); border-radius: 20px; padding: 4px 10px; font-size: 12px; }
@@ -794,6 +818,7 @@ function renderEditor() {
   if (!task) {
     $('modal').classList.remove('open');
     $('editor').innerHTML = '';
+    closePicker();
     return;
   }
   $('modal').classList.add('open');
@@ -808,7 +833,7 @@ function renderEditor() {
   const v = {
     title: d.title ?? task.title,
     notes: d.notes ?? (task.notes || ''),
-    date: d.date ?? savedDate,
+    date: d.date ?? displayDate(savedDate),
     time: d.time ?? savedTime,
     priority: d.priority ?? Number(task.priority),
     recurrence: d.recurrence ?? (task.recurrence ?? ''),
@@ -825,8 +850,8 @@ function renderEditor() {
     ${isNew ? '<div class="preview" id="quickPreview"></div><p class="hint" style="margin:2px 0 10px">Можно просто словами: <b>завтра 19:00</b>, <b>в пятницу в 10</b>, <b>через 3 дня</b>, <b>!3</b> — приоритет, <b>#дом</b> — проект, <b>+срочно</b> — тег, <b>за день за час</b> — напоминания, <b>каждый день</b>. Что разобралось из строки — подставится в пустые поля ниже.</p>' : ''}
     <div class="field"><label>Заметки</label><textarea id="fNotes">${escapeHtml(v.notes)}</textarea></div>
     <div class="row">
-      <div class="field"><label>Дата</label><input type="date" id="fDate" value="${v.date}" /></div>
-      <div class="field"><label>Время</label><input type="time" id="fTime" value="${v.time}" /></div>
+      <div class="field"><label>Дата</label><input id="fDate" value="${escapeHtml(v.date)}" placeholder="дд.мм.гггг" inputmode="numeric" autocomplete="off" /></div>
+      <div class="field"><label>Время</label><input id="fTime" value="${escapeHtml(v.time)}" placeholder="чч:мм" inputmode="numeric" autocomplete="off" /></div>
     </div>
     <div class="row">
       <div class="field"><label>Приоритет</label><select id="fPriority">
@@ -856,6 +881,9 @@ function renderEditor() {
     </div>
     ${isNew ? '' : `<p class="hint" style="margin:10px 0 0">${task.synced ? 'Синхронизировано с облаком' : 'Ждёт синхронизации'}</p>`}`;
 
+  closePicker();
+  attachPicker($('fDate'), 'date');
+  attachPicker($('fTime'), 'time');
   // Любой ввод в карточке — в черновик, чтобы перерисовка его не потеряла.
   ['fTitle', 'fNotes', 'fDate', 'fTime', 'fPriority', 'fRecurrence', 'fProject', 'fTags'].forEach((id) => {
     $(id).addEventListener('input', () => captureDraft(task));
@@ -911,8 +939,9 @@ function offsetLabel(minutes) {
 async function applyEditor(task) {
   const timeZone = state.settings.timezone || 'Europe/Moscow';
   const isNew = Boolean(state.pending && task.id === state.pending.id);
-  const date = $('fDate').value;
-  const time = $('fTime').value;
+  const fields = readDateTimeFields();
+  if (!fields) return;
+  const { date, time } = fields;
   const previous = task;
   if (isNew) return createFromEditor(task, date, time);
   let dueAt = null;
@@ -944,6 +973,17 @@ async function applyEditor(task) {
   state.draft = null;
   state.selectedId = null; // после «Сохранить» карточка закрывается
   await saveTasks(state.tasks.map((item) => (item.id === previous.id ? updated : item)), 'Сохранено');
+}
+
+/** Дата и время из полей: текст → ISO-дата и ЧЧ:ММ. Непонятный ввод — подсветка и отказ. */
+function readDateTimeFields() {
+  const timeZone = state.settings.timezone || 'Europe/Moscow';
+  let date = parseDateText($('fDate').value);
+  const time = parseTimeText($('fTime').value);
+  if (date === null) { $('fDate').classList.add('bad'); toast('Не понял дату — нужно дд.мм.гггг, например 12.10'); $('fDate').focus(); return null; }
+  if (time === null) { $('fTime').classList.add('bad'); toast('Не понял время — нужно чч:мм, например 18:30'); $('fTime').focus(); return null; }
+  if (!date && time) date = todayLocal(timeZone); // время без даты — на сегодня
+  return { date, time };
 }
 
 /** Создание из полной карточки: умная строка в названии дополняет пустые поля. */
@@ -998,7 +1038,7 @@ function captureDraft(task) {
     taskId: task.id,
     title: $('fTitle').value,
     notes: $('fNotes').value,
-    date: $('fDate').value,
+    date: $('fDate').value, // как напечатано — разбирается при сохранении
     time: $('fTime').value,
     priority: Number($('fPriority').value),
     recurrence: $('fRecurrence').value,
@@ -1014,6 +1054,143 @@ function selectTask(taskId) {
   state.selectedId = taskId;
   render();
 }
+
+// --- Дата и время: текст в поле + всплывающий выбор, оба в обе стороны синхронны ---
+const MONTH_YEAR = new Intl.DateTimeFormat('ru-RU', { month: 'long', year: 'numeric' });
+function isoFromParts(year, month, day) {
+  const y = Number(year); const m = Number(month); const d = Number(day);
+  if (!y || m < 1 || m > 12 || d < 1 || d > 31) return null;
+  const probe = new Date(Date.UTC(y, m - 1, d, 12));
+  if (probe.getUTCMonth() !== m - 1 || probe.getUTCDate() !== d) return null;
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+/** «12.10», «12.10.26», «12.10.2026», «1210», «2026-10-12» → ISO; пусто → ''; мусор → null. */
+function parseDateText(text) {
+  const t = String(text ?? '').trim();
+  if (!t) return '';
+  const year = dateAtNoon(todayLocal(state.settings.timezone || 'Europe/Moscow')).getUTCFullYear();
+  let m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(t);
+  if (m) return isoFromParts(m[1], m[2], m[3]);
+  m = /^(\d{1,2})[./\-\s](\d{1,2})(?:[./\-\s](\d{2}|\d{4}))?\.?$/.exec(t);
+  if (m) return isoFromParts(m[3] ? (m[3].length === 2 ? 2000 + Number(m[3]) : m[3]) : year, m[2], m[1]);
+  m = /^(\d{2})(\d{2})(\d{4}|\d{2})?$/.exec(t);
+  if (m) return isoFromParts(m[3] ? (m[3].length === 2 ? 2000 + Number(m[3]) : m[3]) : year, m[2], m[1]);
+  return null;
+}
+/** «18», «18:30», «1830», «18.30», «9:5» → ЧЧ:ММ; пусто → ''; мусор → null. */
+function parseTimeText(text) {
+  const t = String(text ?? '').trim();
+  if (!t) return '';
+  let m = /^(\d{1,2})(?:[:.\-\s](\d{1,2}))?$/.exec(t);
+  if (!m) m = /^(\d{1,2})(\d{2})$/.exec(t);
+  if (!m) return null;
+  const h = Number(m[1]); const mm = Number(m[2] ?? 0);
+  if (h > 23 || mm > 59) return null;
+  return `${String(h).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+}
+function displayDate(iso) {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-');
+  return `${d}.${m}.${y}`;
+}
+
+let picker = null; // { kind: 'date'|'time', input, el, month: 'yyyy-mm' }
+function attachPicker(input, kind) {
+  if (!input) return;
+  input.addEventListener('focus', () => openPicker(input, kind));
+  input.addEventListener('click', () => openPicker(input, kind));
+  input.addEventListener('input', () => { input.classList.remove('bad'); if (picker?.input === input) { if (kind === 'date') { const iso = parseDateText(input.value); if (iso) picker.month = iso.slice(0, 7); } renderPicker(); } });
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') { event.preventDefault(); normalizeField(input, kind); closePicker(); }
+    if (event.key === 'Escape') { if (picker) { event.stopPropagation(); closePicker(); } }
+    if (event.key === 'Tab') { normalizeField(input, kind); closePicker(); }
+  });
+}
+/** Привести напечатанное к виду дд.мм.гггг / чч:мм (если разобралось). */
+function normalizeField(input, kind) {
+  const parsed = kind === 'date' ? parseDateText(input.value) : parseTimeText(input.value);
+  if (parsed === null) { input.classList.add('bad'); return; }
+  input.classList.remove('bad');
+  const pretty = kind === 'date' ? displayDate(parsed) : parsed;
+  if (pretty !== input.value) { input.value = pretty; input.dispatchEvent(new Event('input', { bubbles: true })); }
+}
+function openPicker(input, kind) {
+  if (picker && picker.input === input) return;
+  closePicker();
+  const el = document.createElement('div');
+  el.className = 'picker';
+  // mousedown внутри выбора не должен уводить фокус из поля (иначе выбор закроется до клика)
+  el.addEventListener('mousedown', (event) => event.preventDefault());
+  document.body.appendChild(el);
+  const iso = kind === 'date' ? parseDateText(input.value) : null;
+  picker = { kind, input, el, month: (iso || todayLocal(state.settings.timezone || 'Europe/Moscow')).slice(0, 7) };
+  renderPicker();
+}
+function closePicker() {
+  if (!picker) return;
+  picker.el.remove();
+  picker = null;
+}
+function placePicker() {
+  const rect = picker.input.getBoundingClientRect();
+  const el = picker.el;
+  let top = rect.bottom + 4;
+  if (top + el.offsetHeight > window.innerHeight - 8) top = Math.max(8, rect.top - el.offsetHeight - 4);
+  let left = rect.left;
+  if (left + el.offsetWidth > window.innerWidth - 8) left = Math.max(8, window.innerWidth - el.offsetWidth - 8);
+  el.style.top = `${top}px`;
+  el.style.left = `${left}px`;
+}
+function setPickerValue(text) {
+  const input = picker.input;
+  input.value = text;
+  input.classList.remove('bad');
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+function renderPicker() {
+  if (!picker) return;
+  const timeZone = state.settings.timezone || 'Europe/Moscow';
+  const today = todayLocal(timeZone);
+  const el = picker.el;
+  if (picker.kind === 'date') {
+    const selected = parseDateText(picker.input.value) || '';
+    const [year, month] = picker.month.split('-').map(Number);
+    const first = new Date(Date.UTC(year, month - 1, 1, 12));
+    const lead = (first.getUTCDay() + 6) % 7; // пустых клеток до 1-го (неделя с пн)
+    const cells = [];
+    for (let i = 0; i < 42; i += 1) {
+      const d = new Date(Date.UTC(year, month - 1, 1 - lead + i, 12));
+      const iso = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+      const other = d.getUTCMonth() !== month - 1;
+      const we = d.getUTCDay() === 0 || d.getUTCDay() === 6;
+      if (i >= 35 && other) break;
+      cells.push(`<button type="button" data-iso="${iso}" class="${other ? 'other' : ''} ${we ? 'we' : ''} ${iso === selected ? 'sel' : ''} ${iso === today ? 'now' : ''}">${d.getUTCDate()}</button>`);
+    }
+    el.innerHTML = `<div class="cal">
+      <div class="cal-head"><button type="button" data-nav="-1">‹</button><b>${MONTH_YEAR.format(first).replace(' г.', '')}</b><button type="button" data-nav="1">›</button></div>
+      <div class="cal-grid">${['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'].map((n, i) => `<span class="${i >= 5 ? 'we' : ''}">${n}</span>`).join('')}${cells.join('')}</div>
+      <div class="cal-foot"><button type="button" data-iso="${today}">Сегодня</button><button type="button" data-iso="${addDaysLocal(timeZone, 1)}">Завтра</button><button type="button" data-iso="">Без даты</button></div>
+    </div>`;
+    el.querySelectorAll('[data-nav]').forEach((b) => { b.onclick = () => { const d = new Date(Date.UTC(year, month - 1 + Number(b.dataset.nav), 1, 12)); picker.month = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`; renderPicker(); }; });
+    el.querySelectorAll('[data-iso]').forEach((b) => { b.onclick = () => { setPickerValue(displayDate(b.dataset.iso)); closePicker(); }; });
+  } else {
+    const current = parseTimeText(picker.input.value) || '';
+    const [ch, cm] = current ? current.split(':').map(Number) : [null, null];
+    const hours = Array.from({ length: 24 }, (_, h) => `<button type="button" data-h="${h}" class="${h === ch ? 'sel' : ''}">${String(h).padStart(2, '0')}</button>`);
+    const minutes = Array.from({ length: 12 }, (_, i) => i * 5).map((m) => `<button type="button" data-m="${m}" class="${m === cm ? 'sel' : ''}">${String(m).padStart(2, '0')}</button>`);
+    el.innerHTML = `<div class="tp"><div class="tp-col" data-col="h">${hours.join('')}</div><div class="tp-col" data-col="m">${minutes.join('')}</div></div>
+      <div class="tp-foot"><button type="button" data-t="09:00">09:00</button><button type="button" data-t="12:00">12:00</button><button type="button" data-t="18:00">18:00</button><button type="button" data-t="">Весь день</button></div>`;
+    el.querySelectorAll('[data-h]').forEach((b) => { b.onclick = () => { setPickerValue(`${String(b.dataset.h).padStart(2, '0')}:${String(cm ?? 0).padStart(2, '0')}`); renderPicker(); }; });
+    el.querySelectorAll('[data-m]').forEach((b) => { b.onclick = () => { setPickerValue(`${String(ch ?? 12).padStart(2, '0')}:${String(b.dataset.m).padStart(2, '0')}`); closePicker(); }; });
+    el.querySelectorAll('[data-t]').forEach((b) => { b.onclick = () => { setPickerValue(b.dataset.t); closePicker(); }; });
+    el.querySelectorAll('.tp-col .sel').forEach((b) => b.scrollIntoView({ block: 'center' }));
+  }
+  placePicker();
+}
+document.addEventListener('mousedown', (event) => {
+  if (picker && !picker.el.contains(event.target) && event.target !== picker.input) closePicker();
+}, true);
 
 // --- Добавление задачи: сразу полная карточка ---
 let previewTimer = null;
@@ -1041,7 +1218,7 @@ function openAdd(dateIso = '') {
   state.pending.due_at = null;
   state.selectedId = state.pending.id;
   render();
-  if (dateIso && $('fDate')) { $('fDate').value = dateIso; captureDraft(state.pending); }
+  if (dateIso && $('fDate')) { $('fDate').value = displayDate(dateIso); captureDraft(state.pending); }
 }
 
 // --- Архив ---
