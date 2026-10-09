@@ -110,7 +110,8 @@
   .col.past { opacity: .78; }
   .col-body .same-day { color: var(--muted); font-size: 11px; text-align: center; padding: 10px 6px; line-height: 1.4; }
   .col { display: flex; flex-direction: column; min-height: 0; border-radius: var(--radius); background: rgba(var(--card-rgb), var(--panel-alpha)); }
-  .col.drop { outline: 2px dashed var(--accent); outline-offset: -2px; }
+  .col { transition: background-color .15s; }
+  .col.drop { background: rgba(var(--card-rgb), calc(var(--panel-alpha) + .14)); }
   .col-head { padding: 10px 10px 6px; display: grid; grid-template-columns: 1fr auto; column-gap: 6px; align-items: baseline; }
   .col-head .name { font-weight: 600; font-size: 13px; letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .col-head .date { grid-column: 1 / -1; font-size: 11px; color: var(--muted); white-space: nowrap; }
@@ -119,18 +120,19 @@
   .shelf .col-head { grid-template-columns: auto 1fr; }
   .col-body { flex: 1; min-height: 40px; overflow-y: auto; padding: 4px 7px 7px; display: flex; flex-direction: column; gap: 7px; }
   /* Выбор недели при перетаскивании: появляется сверху, пока тянешь карточку */
-  .weekpick { position: fixed; top: 6px; left: 50%; transform: translateX(-50%); z-index: 60; display: none; flex-direction: column; gap: 6px; padding: 8px 10px; border-radius: 14px; max-width: calc(100vw - 40px); box-shadow: 0 12px 40px rgba(0, 0, 0, .25); }
+  .weekpick { position: fixed; top: 6px; left: 50%; transform: translateX(-50%); z-index: 60; display: none; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 16px; max-width: calc(100vw - 40px); box-shadow: 0 12px 40px rgba(0, 0, 0, .25); }
   body.dragging .weekpick { display: flex; }
-  .weekpick .wk-row, .weekpick .wd-row { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
-  .weekpick .wk { border: 1px solid var(--line); border-radius: 9px; padding: 4px 9px; font-size: 12px; color: var(--muted); background: rgba(var(--card-rgb), .35); white-space: nowrap; }
+  .weekpick .wk-row, .weekpick .wd-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  .weekpick .wk { border: 1px solid var(--line); border-radius: 10px; padding: 5px 11px; font-size: 14px; color: var(--muted); background: rgba(var(--card-rgb), .35); white-space: nowrap; }
   .weekpick .wk b { color: var(--text); font-weight: 600; }
   .weekpick .wk.sel { border-color: var(--accent); background: var(--accent-soft); }
-  .weekpick .wk.over, .weekpick .wd.over { outline: 2px dashed var(--accent); outline-offset: -2px; }
-  .weekpick .wd { flex: 1; min-width: 64px; border: 1px solid var(--line); border-radius: 9px; padding: 5px 8px; text-align: center; font-size: 12px; background: rgba(var(--card-rgb), .35); }
-  .weekpick .wd b { display: block; font-size: 15px; }
+  .weekpick .wk, .weekpick .wd { transition: background-color .15s, transform .15s; }
+  .weekpick .wk.over, .weekpick .wd.over { background: rgba(var(--card-rgb), .75); transform: scale(1.06); border-color: var(--card-line); }
+  .weekpick .wd { flex: 1; min-width: 78px; border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; text-align: center; font-size: 14px; background: rgba(var(--card-rgb), .35); }
+  .weekpick .wd b { display: block; font-size: 18px; }
   .weekpick .wd.weekend b { color: var(--danger); }
   .weekpick .wd.is-today { border-color: var(--accent); }
-  .weekpick .hint { text-align: center; margin: 0; font-size: 11px; }
+  .weekpick .hint { text-align: center; margin: 0; font-size: 13px; }
   .col-body::-webkit-scrollbar { width: 6px; } .col-body::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
 
   /* --- Карточка-облачко --- */
@@ -156,7 +158,8 @@
   .card .foot .proj { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .card .stripe { position: absolute; left: 10px; right: 10px; top: 0; height: 3px; border-radius: 0 0 3px 3px; }
   .prio-0 .stripe, .prio-1 .stripe { background: transparent; } .prio-2 .stripe { background: #f59e0b; } .prio-3 .stripe { background: #ef4444; }
-  .placeholder { flex: none; width: 100%; aspect-ratio: calc(4 / 3 / var(--scale)); border-radius: var(--radius); border: 2px dashed var(--accent); opacity: .6; }
+  .placeholder { flex: none; width: 100%; aspect-ratio: calc(4 / 3 / var(--scale)); border-radius: var(--radius); background: rgba(var(--card-rgb), .22); box-shadow: inset 0 0 0 1px rgba(var(--card-rgb), .45); animation: ph-in .18s ease; }
+  @keyframes ph-in { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
 
   /* --- Полка внизу: без срока и позже --- */
   .shelf { display: grid; grid-template-columns: 1fr; gap: 8px; padding: 0 14px 12px; height: calc(110px + 40px * var(--scale)); }
@@ -795,6 +798,8 @@ function onDragStart(event) {
   setTimeout(() => { if (dragId) { pickWeek = 1; renderWeekPick(); document.body.classList.add('dragging'); } }, 0);
 }
 function onDragEnd() {
+  reorderBusy = false;
+  document.querySelectorAll('.card[style]').forEach((card) => card.removeAttribute('style'));
   document.querySelectorAll('.card.dragging').forEach((card) => card.classList.remove('dragging'));
   document.querySelectorAll('.col.drop').forEach((col) => col.classList.remove('drop'));
   document.body.classList.remove('dragging');
@@ -876,11 +881,38 @@ function onDragOver(event) {
   const horizontal = zone.dataset.zone !== 'day';
   const cards = Array.from(zone.querySelectorAll('.card:not(.dragging)'));
   const next = cards.find((card) => {
-    const rect = card.getBoundingClientRect();
+    const rect = layoutRect(card); // без учёта анимации сдвига — иначе карточки «дрожат» между двумя позициями
     return horizontal ? event.clientX < rect.left + rect.width / 2 : event.clientY < rect.top + rect.height / 2;
   });
   if (placeholder && placeholder.parentElement !== zone || (next ? placeholder.nextSibling !== next : placeholder.parentElement !== zone || zone.lastElementChild !== placeholder)) {
-    if (next) zone.insertBefore(placeholder, next); else zone.appendChild(placeholder);
+    movePlaceholder(zone, next);
+  }
+}
+/** Прямоугольник карточки по раскладке, без текущего transform (FLIP-анимация, hover). */
+function layoutRect(card) {
+  const rect = card.getBoundingClientRect();
+  const matrix = new DOMMatrix(getComputedStyle(card).transform);
+  return { left: rect.left - matrix.m41, top: rect.top - matrix.m42, width: rect.width, height: rect.height };
+}
+/** Переставляет заглушку и плавно «доводит» соседние карточки на новые места (FLIP), а не телепортирует их. */
+function movePlaceholder(zone, next) {
+  const cards = Array.from(zone.querySelectorAll('.card:not(.dragging)'));
+  const before = new Map(cards.map((card) => [card, card.getBoundingClientRect()])); // где карточка сейчас визуально (с учётом недоигранной анимации)
+  if (next) zone.insertBefore(placeholder, next); else zone.appendChild(placeholder);
+  for (const card of cards) {
+    const a = before.get(card);
+    const b = layoutRect(card);
+    const dx = a.left - b.left;
+    const dy = a.top - b.top;
+    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
+    card.style.transition = 'none';
+    card.style.transform = `translate(${dx}px, ${dy}px)`;
+    requestAnimationFrame(() => {
+      if (!dragId) { card.removeAttribute('style'); return; }
+      card.style.transition = 'transform .18s ease';
+      card.style.transform = '';
+      setTimeout(() => card.removeAttribute('style'), 200);
+    });
   }
 }
 function onDragLeave(event) {
@@ -894,6 +926,7 @@ async function onDrop(event) {
   if (!zone || !taskId) return;
   // Порядок в целевой зоне: карточки + метка на месте вставки.
   const order = Array.from(zone.children)
+    .filter((element) => element === placeholder || element.dataset?.id !== taskId) // саму карточку считаем там, где стоит метка
     .map((element) => (element === placeholder ? taskId : element.dataset?.id))
     .filter((id, index, list) => id && list.indexOf(id) === index);
   if (!order.includes(taskId)) order.push(taskId);
