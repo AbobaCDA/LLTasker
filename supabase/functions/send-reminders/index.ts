@@ -11,7 +11,7 @@ const db: SupabaseClient = createClient(supabaseUrl, adminKey, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
-const PRIORITY_MARKS = ["🔽", "⚪️", "🟠", "🔴"];
+const PRIORITY_MARKS = ["⚪️", "⚪️", "🟠", "🔴"];
 const DIGEST_MAX_TASKS = 12;
 
 function requiredEnv(name: string): string {
@@ -70,6 +70,7 @@ function humanOffset(minutes: number): string {
     return days === 1 ? "остался 1 день" : `осталось ${days} дн.`;
   }
   if (value % 60 === 0) return `осталось ${value / 60} ч.`;
+  if (value > 60) return `осталось ${Math.floor(value / 60)} ч. ${value % 60} мин.`;
   return `осталось ${value} мин.`;
 }
 

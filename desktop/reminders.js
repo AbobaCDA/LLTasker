@@ -1,7 +1,8 @@
 // Планировщик локальных напоминаний (уведомления Windows).
 // Чистые функции: их проверяют тесты, а таймеры и показ уведомлений живут в main.js.
 
-export const ALLOWED_OFFSETS = [20160, 10080, 4320, 1440, 720, 360, 180, 60, 30, 15, 10, 5, -5];
+export const MAX_OFFSET = 20160;
+export const isAllowedOffset = (value) => Number.isInteger(value) && ((value >= 1 && value <= MAX_OFFSET) || value === -5);
 
 /**
  * @typedef {Object} UpcomingReminder
@@ -38,7 +39,7 @@ export function computeUpcomingReminders(tasks, options = {}) {
 
     for (const rawOffset of task.remind_offsets ?? []) {
       const offset = Number(rawOffset);
-      if (!ALLOWED_OFFSETS.includes(offset)) continue;
+      if (!isAllowedOffset(offset)) continue;
       const fireAt = dueAt - offset * 60_000;
       const key = reminderKey(task, offset);
       if (fireAt <= now.getTime() || fireAt > now.getTime() + horizonMs) continue;

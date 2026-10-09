@@ -146,7 +146,9 @@ group('Наборы напоминаний');
 {
   check('пусто → значения по умолчанию', JSON.stringify(normalizeOffsets([])) === JSON.stringify(DEFAULT_OFFSETS));
   check('пусто с allowEmpty → выключено', JSON.stringify(normalizeOffsets([], DEFAULT_OFFSETS, true)) === '[]');
-  check('недопустимое значение отбрасывается', JSON.stringify(normalizeOffsets([999])) === JSON.stringify(DEFAULT_OFFSETS));
+  check('недопустимое значение отбрасывается', JSON.stringify(normalizeOffsets([99999])) === JSON.stringify(DEFAULT_OFFSETS));
+  check('ноль, -3 и дробь отбрасываются, -5 и 90 остаются', JSON.stringify(normalizeOffsets([0, -3, 7.5, -5, 90])) === '[-5,90]', JSON.stringify(normalizeOffsets([0, -3, 7.5, -5, 90])));
+  check('любое целое до 14 дней допустимо (ползунок)', JSON.stringify(normalizeOffsets([7, 45, 20160])) === '[7,45,20160]');
   check('дубликаты убираются', JSON.stringify(normalizeOffsets([60, 60, 10])) === '[60,10]');
   check('порядок сохраняется', JSON.stringify(normalizeOffsets([10, 1440, 60])) === '[10,1440,60]');
   check('больше шести значений не сохраняем', normalizeOffsets([20160, 10080, 4320, 1440, 720, 60, 10]).length === 6);

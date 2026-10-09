@@ -22,6 +22,7 @@
     --card-rgb: 34, 40, 54;      /* цвет карточки, прозрачность — отдельно */
     --card-line: rgba(255, 255, 255, .08);
     --solid: #1e2431;             /* непрозрачный фон всплывающих окон */
+    --pop-bg: rgba(38, 44, 58, .82);   /* матовый серый фон выпадающих выборов */
     --wallpaper: none;
     --wallpaper-veil: rgba(10, 12, 18, .55);
     --blur: 10px;
@@ -41,6 +42,7 @@
     --card-rgb: 255, 255, 255;
     --card-line: rgba(80, 92, 110, .35);  /* серый контур облачка */
     --solid: #ffffff;
+    --pop-bg: rgba(214, 220, 228, .72);
     --wallpaper-veil: rgba(240, 243, 247, .25);
     --blur: 12px;
   }
@@ -144,7 +146,7 @@
   .card .foot { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); min-height: 14px; }
   .card .foot .proj { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .card .stripe { position: absolute; left: 10px; right: 10px; top: 0; height: 3px; border-radius: 0 0 3px 3px; }
-  .prio-0 .stripe, .prio-1 .stripe { background: transparent; } .prio-0 .title { color: var(--muted); font-weight: 500; } .prio-2 .stripe { background: #f59e0b; } .prio-3 .stripe { background: #ef4444; }
+  .prio-0 .stripe, .prio-1 .stripe { background: transparent; } .prio-2 .stripe { background: #f59e0b; } .prio-3 .stripe { background: #ef4444; }
   .placeholder { flex: none; width: 100%; aspect-ratio: 4 / 3; border-radius: var(--radius); border: 2px dashed var(--accent); opacity: .6; }
 
   /* --- Полка внизу: без срока и позже --- */
@@ -177,7 +179,7 @@
   .row { display: flex; gap: 10px; }
   .field input.bad { border-color: var(--danger); }
   /* Всплывающий выбор даты / времени под полем (текст в поле и выбор синхронны) */
-  .picker { position: fixed; z-index: 70; background: rgba(var(--card-rgb), .94); backdrop-filter: blur(16px); border: 1px solid var(--card-line); border-radius: 12px; padding: 10px; box-shadow: 0 14px 40px rgba(0, 0, 0, .25); user-select: none; }
+  .picker { position: fixed; z-index: 70; background: var(--pop-bg); backdrop-filter: blur(18px) saturate(.9); border: 1px solid var(--card-line); border-radius: 12px; padding: 10px; box-shadow: 0 14px 40px rgba(0, 0, 0, .22); user-select: none; }
   .picker button { border: 0; background: transparent; color: var(--text); border-radius: 8px; font-size: 13px; cursor: pointer; padding: 0; }
   .picker button:hover { background: var(--accent-soft); }
   .picker button.sel { background: var(--accent); color: #fff; }
@@ -203,6 +205,11 @@
   .offsets { display: flex; flex-wrap: wrap; gap: 6px; }
   .offsets button { border: 1px solid var(--line); background: transparent; color: var(--muted); border-radius: 20px; padding: 4px 10px; font-size: 12px; }
   .offsets button.on { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
+  .offsets button.custom { border-style: dashed; }
+  .custom-offset { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+  .custom-offset input[type=range] { flex: 1; accent-color: var(--accent); }
+  .custom-offset span { font-size: 12px; color: var(--muted); min-width: 92px; }
+  .custom-offset button { padding: 4px 10px; font-size: 12px; border-radius: 20px; }
   .actions { display: flex; gap: 8px; margin-top: 8px; }
   .actions button { flex: 1; border-radius: 9px; padding: 9px 12px; }
   .ghost { background: transparent; border: 1px solid var(--line); color: var(--muted); border-radius: 8px; padding: 7px 10px; }
@@ -276,7 +283,7 @@ function demoTasks() {
   };
   const make = (id, title, extra) => ({
     id, title, notes: '', priority: 1, project: null, tags: [], all_day: false,
-    remind_offsets: [1440, 60, 10], status: 'open', completed_at: null, recurrence: null,
+    remind_offsets: [30, 5], status: 'open', completed_at: null, recurrence: null,
     created_at: utc(0, 8, 0), updated_at: utc(0, 8, 0), synced: true, dirty: false, ...extra,
   });
   return [
@@ -346,8 +353,11 @@ const state = {
   showDone: false,
 };
 
-const PRIORITY_LABELS = ['Низкий', 'Обычная', 'Средний', 'Высокий']; // 1 — по умолчанию, полоска только у 2 и 3
-const OFFSET_PRESETS = [10080, 1440, 720, 180, 60, 30, 10, 5];
+const PRIORITY_LABELS = ['Низкий', 'Низкий', 'Средний', 'Высокий']; // 1 — низкий (по умолчанию), 0 — старое значение, читается как низкий
+const PRIORITY_CHOICES = [1, 2, 3];
+const OFFSET_PRESETS = [5, 15, 30, 90]; // стандартные; остальное — ползунком
+const DEFAULT_OFFSETS = [30, 5];
+const OFFSET_SLIDER = [1, 2, 3, 5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 240, 300, 360, 480, 720, 1440, 2880, 4320, 7200, 10080, 20160];
 const RECURRENCE_OPTIONS = [['', 'Без повтора'], ['daily', 'Каждый день'], ['weekdays', 'По будням'], ['weekly', 'Каждую неделю'], ['monthly', 'Каждый месяц']];
 const $ = (id) => document.getElementById(id);
 
@@ -467,7 +477,7 @@ function newTask(title, extra = {}) {
     tags: [],
     due_at: null,
     all_day: false,
-    remind_offsets: [1440, 60, 10],
+    remind_offsets: [...DEFAULT_OFFSETS],
     status: 'open',
     completed_at: null,
     recurrence: null,
@@ -855,7 +865,7 @@ function renderEditor() {
     </div>
     <div class="row">
       <div class="field"><label>Приоритет</label><select id="fPriority">
-        ${PRIORITY_LABELS.map((label, index) => `<option value="${index}" ${Number(v.priority) === index ? 'selected' : ''}>${label}</option>`).join('')}
+        ${PRIORITY_CHOICES.map((index) => `<option value="${index}" ${Math.max(1, Number(v.priority) || 1) === index ? 'selected' : ''}>${PRIORITY_LABELS[index]}</option>`).join('')}
       </select></div>
       <div class="field"><label>Повтор</label><select id="fRecurrence">
         ${RECURRENCE_OPTIONS.map(([value, label]) => `<option value="${value}" ${v.recurrence === value ? 'selected' : ''}>${label}</option>`).join('')}
@@ -869,7 +879,13 @@ function renderEditor() {
       <label>Напоминания до срока</label>
       <div class="offsets" id="fOffsets">
         ${OFFSET_PRESETS.map((minutes) => `<button data-offset="${minutes}" class="${v.remind_offsets.includes(minutes) ? 'on' : ''}">${offsetLabel(minutes)}</button>`).join('')}
+        ${v.remind_offsets.filter((minutes) => !OFFSET_PRESETS.includes(minutes)).sort((a, b) => b - a).map((minutes) => `<button data-offset="${minutes}" class="on custom" title="Своё напоминание — нажми, чтобы убрать">${offsetLabel(minutes)} ×</button>`).join('')}
         <button data-offset="none" class="${v.remind_offsets.length === 0 ? 'on' : ''}">выключены</button>
+      </div>
+      <div class="custom-offset">
+        <input type="range" id="fOffsetSlider" min="0" max="${OFFSET_SLIDER.length - 1}" step="1" value="${OFFSET_SLIDER.indexOf(60)}" />
+        <span id="fOffsetValue">за ${offsetLabel(60)}</span>
+        <button class="ghost" id="fOffsetAdd" title="Добавить своё напоминание">+ Добавить</button>
       </div>
     </div>
     <div class="actions">
@@ -901,6 +917,18 @@ function renderEditor() {
       renderEditor();
     };
   });
+  $('fOffsetSlider').oninput = () => { $('fOffsetValue').textContent = `за ${offsetLabel(OFFSET_SLIDER[Number($('fOffsetSlider').value)])}`; };
+  $('fOffsetAdd').onclick = () => {
+    captureDraft(task);
+    const minutes = OFFSET_SLIDER[Number($('fOffsetSlider').value)];
+    const current = new Set(state.draft.remind_offsets);
+    if (current.size >= 6 && !current.has(minutes)) { toast('Не больше шести напоминаний на задачу'); return; }
+    current.add(minutes);
+    state.draft.remind_offsets = Array.from(current).sort((a, b) => b - a);
+    state.draft.sliderIndex = Number($('fOffsetSlider').value);
+    renderEditor();
+  };
+  if (state.draft?.sliderIndex !== undefined) { $('fOffsetSlider').value = String(state.draft.sliderIndex); $('fOffsetSlider').oninput(); }
   $('fSave').onclick = () => applyEditor(task);
   $('fClose').onclick = () => { state.draft = null; state.pending = null; state.selectedId = null; render(); };
   if (isNew) {
@@ -930,10 +958,11 @@ function renderEditor() {
 }
 
 function offsetLabel(minutes) {
-  if (minutes >= 10080) return `${minutes / 10080} нед`;
-  if (minutes >= 1440) return `${minutes / 1440} дн`;
-  if (minutes >= 60) return `${minutes / 60} ч`;
-  return `${minutes} мин`;
+  const m = Number(minutes);
+  if (m >= 10080 && m % 10080 === 0) return `${m / 10080} нед`;
+  if (m >= 1440 && m % 1440 === 0) return `${m / 1440} дн`;
+  if (m >= 60) return m % 60 === 0 ? `${m / 60} ч` : `${Math.floor(m / 60)} ч ${m % 60} мин`;
+  return `${m} мин`;
 }
 
 async function applyEditor(task) {
@@ -1022,7 +1051,7 @@ async function createFromEditor(task, date, time) {
     recurrence: formRecurrence || parsed.recurrence || null,
     due_at: dueAt,
     all_day: allDay,
-    remind_offsets: draftOffsets ?? (parsed.offsets === null || parsed.offsets === undefined ? [1440, 60, 10] : parsed.offsets),
+    remind_offsets: draftOffsets ?? (parsed.offsets === null || parsed.offsets === undefined ? [...DEFAULT_OFFSETS] : parsed.offsets),
   });
   state.draft = null;
   state.pending = null;
@@ -1045,6 +1074,7 @@ function captureDraft(task) {
     project: $('fProject').value,
     tags: $('fTags').value,
     remind_offsets: previous?.remind_offsets ?? (task.remind_offsets || []),
+    sliderIndex: previous?.sliderIndex,
   };
 }
 
@@ -1214,7 +1244,7 @@ async function updatePreview() {
 
 function openAdd(dateIso = '') {
   state.draft = null;
-  state.pending = newTask('', { remind_offsets: [1440, 60, 10] });
+  state.pending = newTask('', { remind_offsets: [...DEFAULT_OFFSETS] });
   state.pending.due_at = null;
   state.selectedId = state.pending.id;
   render();

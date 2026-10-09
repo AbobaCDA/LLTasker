@@ -7,7 +7,10 @@ import { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 
-const migration = readFileSync(new URL('../supabase/migrations/202610060001_tasks_core.sql', import.meta.url), 'utf8');
+import { readdirSync } from 'node:fs';
+const migrationsDir = new URL('../supabase/migrations/', import.meta.url);
+const migration = readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).sort()
+  .map((name) => readFileSync(new URL(name, migrationsDir), 'utf8')).join('\n');
 
 let passed = 0;
 const failures = [];
@@ -117,6 +120,17 @@ check('после переноса дедлайна созданы новые н
 await db.query(`insert into public.tasks (user_id, id, title, remind_offsets) values ($1, 't-someday', 'Когда-нибудь', '{}')`, [userId]);
 const { rows: noReminders } = await db.query(`select count(*)::int as n from public.task_reminders where task_id = 't-someday'`);
 check('задача без дедлайна не порождает напоминаний', noReminders[0].n === 0);
+
+// Смещения напоминаний: любое целое 1…20160 или -5 (миграция 202610090001), по умолчанию {30,5}
+await db.query(`insert into public.tasks (user_id, id, title, due_at, remind_offsets) values ($1, 't-custom', 'Своё напоминание', now() + interval '1 day', '{90,7}')`, [userId]);
+const { rows: customReminders } = await db.query(`select count(*)::int as n from public.task_reminders where task_id = 't-custom' and status = 'pending' and kind = 'deadline'`);
+check('произвольные смещения 90 и 7 минут приняты и запланированы', customReminders[0].n === 2, `pending=${customReminders[0].n}`);
+let rejected = false;
+try { await db.query(`insert into public.tasks (user_id, id, title, remind_offsets) values ($1, 't-bad', 'Плохое смещение', '{99999}')`, [userId]); } catch { rejected = true; }
+check('смещение больше 14 дней отклоняется ограничением', rejected);
+await db.query(`insert into public.tasks (user_id, id, title) values ($1, 't-default', 'По умолчанию')`, [userId]);
+const { rows: defaults } = await db.query(`select remind_offsets from public.tasks where id = 't-default'`);
+check('по умолчанию напоминания за 30 и 5 минут', JSON.stringify(defaults[0].remind_offsets) === '[30,5]', JSON.stringify(defaults[0].remind_offsets));
 
 // --- Выдача задач через RPC (то, что делает cron) -------------------------------
 const { rows: claimed } = await db.query(`select * from public.claim_due_task_reminders(10)`);

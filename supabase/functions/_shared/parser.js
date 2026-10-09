@@ -4,9 +4,14 @@
 import { addLocalDays, zonedParts, zonedTimeToUtc } from "./time.js";
 
 /** @type {number[]} */
-export const DEFAULT_OFFSETS = [1440, 60, 10];
-/** @type {number[]} */
-export const ALLOWED_OFFSETS = [20160, 10080, 4320, 1440, 720, 360, 180, 60, 30, 15, 10, 5, -5];
+export const DEFAULT_OFFSETS = [30, 5];
+/** Допустимое смещение: от 1 минуты до 14 дней до срока, либо -5 (подсказка после срока). */
+export const MAX_OFFSET = 20160;
+export function isAllowedOffset(value) {
+  return Number.isInteger(value) && ((value >= 1 && value <= MAX_OFFSET) || value === -5);
+}
+/** @type {number[]} Стандартные варианты в карточке (можно выбрать несколько). */
+export const OFFSET_PRESETS = [5, 15, 30, 90];
 
 /** @type {Record<string, string>} */
 export const RECURRENCE_LABELS = {
@@ -189,7 +194,7 @@ export function parseTaskInput(raw, timeZone, now = new Date()) {
   }
 
   let priority = 1;
-  const priorityMatch = eat(/\s!([0-3])\s/);
+  const priorityMatch = eat(/\s!([1-3])\s/);
   if (priorityMatch) priority = Number(priorityMatch[1]);
   else if (eat(/\s(важно|срочно)\s/i)) priority = 3;
 
@@ -269,7 +274,7 @@ export function parseSnooze(raw) {
  * @returns {number[]}
  */
 export function normalizeOffsets(offsets, fallback = DEFAULT_OFFSETS, allowEmpty = false) {
-  const list = Array.isArray(offsets) ? offsets.map(Number).filter((value) => ALLOWED_OFFSETS.includes(value)) : [];
+  const list = Array.isArray(offsets) ? offsets.map(Number).filter(isAllowedOffset) : [];
   const unique = Array.from(new Set(list)).slice(0, 6);
   if (unique.length > 0) return unique;
   return allowEmpty ? [] : fallback;

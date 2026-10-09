@@ -23,7 +23,7 @@ const db: SupabaseClient = createClient(supabaseUrl, adminKey, {
 });
 
 const SESSION_TTL_MINUTES = 10;
-const PRIORITY_MARKS = ["🔽", "⚪️", "🟠", "🔴"];
+const PRIORITY_MARKS = ["⚪️", "⚪️", "🟠", "🔴"];
 
 type TaskRow = {
   user_id: string;
@@ -717,9 +717,9 @@ async function handleCallback(callback: Record<string, any>) {
   if (action === "remind") {
     const current = normalizeOffsets(task.remind_offsets, DEFAULT_OFFSETS, true);
     const presets: Record<string, number[]> = {
-      standard: [1440, 60, 10],
-      short: [60, 10],
-      workday: [180, 30],
+      standard: [30, 5],
+      short: [15, 5],
+      workday: [90, 30],
       none: [],
     };
     const { data } = await updateTask(userId, task.id, { remind_offsets: current.length > 0 ? presets.none : presets.standard });

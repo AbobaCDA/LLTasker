@@ -87,5 +87,6 @@ export function humanOffset(minutes) {
     return days === 1 ? "остался 1 день" : `осталось ${days} дн.`;
   }
   if (value % 60 === 0) return `осталось ${value / 60} ч.`;
+  if (value > 60) return `осталось ${Math.floor(value / 60)} ч. ${value % 60} мин.`;
   return `осталось ${value} мин.`;
 }
