@@ -10,6 +10,8 @@
     --panel: rgba(24, 28, 38, .78);
     --panel-2: #1e2431;
     --line: #2a3242;
+    --grid-hour: rgba(255, 255, 255, .13);
+    --grid-half: rgba(255, 255, 255, .055);
     --text: #e8ecf4;
     --muted: #8d99ae;
     --accent: #4f8cff;
@@ -33,6 +35,8 @@
     --panel: rgba(255, 255, 255, .62);
     --panel-2: rgba(255, 255, 255, .92);
     --line: rgba(60, 72, 90, .18);
+    --grid-hour: rgba(40, 50, 70, .17);
+    --grid-half: rgba(40, 50, 70, .075);
     --text: #1f2733;
     --muted: #55637a;
     --accent: #2f6fed;
@@ -119,8 +123,32 @@
   .col-head .n { font-size: 11px; color: var(--muted); }
   .shelf .col-head { grid-template-columns: auto 1fr; }
   .col-body { flex: 1; min-height: 40px; overflow-y: auto; padding: 4px 7px 7px; display: flex; flex-direction: column; gap: 7px; }
+  /* Колонка дня — таймлайн 8:00–22:00: 28 получасовых рядов на всю высоту, карточки стоят на своём времени. */
+  .col-body[data-zone="day"] { overflow: hidden; gap: 0; padding: 2px 6px 6px; }
+  .timeline { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .timeline .slot { flex: 1; min-height: 0; border-top: 1px solid var(--grid-half); position: relative; }
+  .timeline .slot.hour { border-top-color: var(--grid-hour); }
+  .timeline .slot.hour::before { content: attr(data-h); position: absolute; left: 2px; top: 0; font-size: 9px; line-height: 1; color: var(--muted); opacity: .75; }
+  .timeline .card, .timeline .placeholder { position: absolute; left: 2px; right: 2px; width: auto; transition: top .12s ease, left .12s ease, transform .1s, box-shadow .1s; }
+  .timeline .card:hover { z-index: 40 !important; }
+  .timeline .placeholder { pointer-events: none; transition: top .08s ease; z-index: 50; }
+  .timeline .now { position: absolute; left: 0; right: 0; height: 1px; background: var(--accent); opacity: .6; pointer-events: none; z-index: 2; }
+  .timeline .now::before { content: ''; position: absolute; left: -1px; top: -2px; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+  .overdue, .allday { flex: none; display: flex; flex-direction: column; gap: 5px; max-height: 40%; overflow-y: auto; }
+  .overdue { padding-bottom: 6px; }
+  .allday { padding-top: 6px; border-top: 1px dashed var(--grid-hour); min-height: 24px; position: relative; }
+  .allday:empty::after { content: 'без времени'; position: absolute; inset: 6px 0 0; text-align: center; font-size: 10px; color: var(--muted); opacity: 0; transition: opacity .15s; }
+  body.dragging .allday:empty::after { opacity: .8; }
+  .allday .card { aspect-ratio: auto; }
+  .allday .card .title { -webkit-line-clamp: 2; }
+  .picker.timepop { padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+  .picker.timepop .row { display: flex; align-items: center; gap: 6px; }
+  .picker.timepop input { width: 64px; text-align: center; font: inherit; font-size: 14px; padding: 5px 6px; border-radius: 8px; border: 1px solid var(--line); background: rgba(var(--card-rgb), .5); color: var(--text); }
+  .picker.timepop button { padding: 5px 9px; border-radius: 8px; font-size: 13px; }
+  .picker.timepop button.ok { background: var(--accent); color: #fff; }
+  .picker.timepop .hint { font-size: 11px; color: var(--muted); }
   /* Выбор недели при перетаскивании: появляется сверху, пока тянешь карточку */
-  .weekpick { position: fixed; top: 6px; left: 50%; transform: translateX(-50%); z-index: 60; display: none; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 16px; max-width: calc(100vw - 40px); box-shadow: 0 12px 40px rgba(0, 0, 0, .25); }
+  .weekpick { position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%); z-index: 60; display: none; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 16px; max-width: calc(100vw - 40px); box-shadow: 0 12px 40px rgba(0, 0, 0, .25); }
   body.dragging .weekpick { display: flex; }
   .weekpick .wk-row, .weekpick .wd-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
   .weekpick .wk { border: 1px solid var(--line); border-radius: 10px; padding: 5px 11px; font-size: 14px; color: var(--muted); background: rgba(var(--card-rgb), .35); white-space: nowrap; }
@@ -145,6 +173,12 @@
   }
   .card:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0, 0, 0, .12); border-color: var(--accent); }
   .card.dragging { opacity: .35; }
+  /* Низкие карточки (ползунок < 80 % / < 60 %): меньше отступов, короче заголовок, без нижней строки. */
+  body.cards-compact .board .card { padding: .45em .65em .4em; gap: .15em; }
+  body.cards-compact .board .timeline .card .title { -webkit-line-clamp: 1; }
+  body.cards-tight .board .card .title { -webkit-line-clamp: 1; }
+  body.cards-tight .board .card .foot { display: none; }
+  body.cards-tight .board .card .top { font-size: .8em; }
   .card.done { opacity: .55; }
   .card.done .title { text-decoration: line-through; color: var(--muted); }
   .card .top { display: flex; align-items: center; gap: .45em; font-size: .85em; color: var(--muted); }
@@ -162,11 +196,11 @@
   @keyframes ph-in { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
 
   /* --- Полка внизу: без срока и позже --- */
-  .shelf { display: grid; grid-template-columns: 1fr; gap: 8px; padding: 0 14px 12px; height: calc(110px + 40px * var(--scale)); }
+  .shelf { display: grid; grid-template-columns: 1fr; gap: 8px; padding: 0 14px 12px; height: calc(150px + 50px * var(--scale)); }
   .shelf .col { flex-direction: column; }
   .shelf .col-body { flex-direction: row; overflow-x: auto; overflow-y: hidden; align-items: stretch; }
-  .shelf .card { width: 108px; aspect-ratio: auto; height: 100%; }
-  .shelf .placeholder { width: 108px; aspect-ratio: auto; height: auto; }
+  .shelf .card { width: var(--day-card-w, 140px); aspect-ratio: auto; height: 100%; }
+  .shelf .placeholder { width: var(--day-card-w, 140px); aspect-ratio: auto; height: auto; }
   .shelf.collapsed { height: 40px; }
   .shelf.collapsed .col-body { display: none; }
   .empty-hint { color: var(--muted); font-size: 12px; align-self: center; padding: 3px 9px; border-radius: 8px; background: rgba(var(--card-rgb), .55); }
@@ -472,9 +506,17 @@ async function applyAppearance() {
   document.body.classList.toggle('no-wallpaper', !url);
   const opacity = Math.min(60, Math.max(5, Number(state.settings.panelOpacity) || 10));
   document.documentElement.style.setProperty('--panel-alpha', String(opacity / 100));
-  const scale = Math.min(160, Math.max(60, Number(state.settings.cardScale) || 100));
-  document.documentElement.style.setProperty('--scale', String(scale / 100));
+  setCardScale(Number(state.settings.cardScale) || 100);
   document.documentElement.style.setProperty('--wallpaper', url ? `url("${url}")` : 'none');
+}
+
+/** Высота карточек: CSS-переменная + режимы «компактно»/«в одну строку» для низких карточек. */
+function setCardScale(value) {
+  const scale = Math.min(160, Math.max(40, Number(value) || 100));
+  document.documentElement.style.setProperty('--scale', String(scale / 100));
+  document.body.classList.toggle('cards-compact', scale < 80);
+  document.body.classList.toggle('cards-tight', scale < 60);
+  if (typeof layoutTimelines === 'function') layoutTimelines();
 }
 
 // --- Загрузка и сохранение ---
@@ -647,7 +689,7 @@ function boardData() {
   return { days, buckets, today };
 }
 
-function cardHtml(task, { showDay = false } = {}) {
+function cardHtml(task, { showDay = false, attrs = '' } = {}) {
   const late = isLate(task);
   const time = dueLabel(task);
   const top = [];
@@ -661,12 +703,76 @@ function cardHtml(task, { showDay = false } = {}) {
   if (task.due_at && (task.remind_offsets || []).length === 0) foot.push('<span title="Напоминания выключены">🔕</span>');
   if (!task.synced && state.cloud.signedIn) foot.push('<span title="Ещё не ушло в облако">⏳</span>');
   return `
-    <div class="card prio-${Number(task.priority) || 0} ${task.status === 'done' ? 'done' : ''}" draggable="true" data-id="${task.id}" title="${escapeHtml(task.title)}">
+    <div class="card prio-${Number(task.priority) || 0} ${task.status === 'done' ? 'done' : ''}" draggable="true" data-id="${task.id}" title="${escapeHtml(task.title)}"${attrs}>
       <span class="stripe"></span>
       <div class="top">${top.join('')}<button class="check ${task.status === 'done' ? 'done' : ''}" data-toggle="${task.id}" title="Выполнено">${task.status === 'done' ? '✓' : ''}</button></div>
       <div class="title">${escapeHtml(task.title)}</div>
       <div class="foot">${foot.join('')}</div>
     </div>`;
+}
+
+// --- Таймлайн дня: 8:00–22:00, шаг полчаса ---
+const DAY_START = 8 * 60;
+const DAY_END = 22 * 60;
+const DAY_SPAN = DAY_END - DAY_START;
+/** Минуты от полуночи (локально) для задачи со временем; null — весь день / без срока. */
+function taskMinutes(task) {
+  if (!task.due_at || task.all_day) return null;
+  const p = parts(task.due_at, state.settings.timezone || 'Europe/Moscow');
+  return p.hour * 60 + p.minute;
+}
+function minutesLabel(minutes) { return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`; }
+/** Тело колонки дня: просроченные (только «Сегодня») сверху, таймлайн, внизу — задачи без времени. */
+function dayBodyHtml(tasks) {
+  const overdue = tasks.filter((task) => isLate(task));
+  const timed = tasks.filter((task) => !isLate(task) && taskMinutes(task) !== null).sort((a, b) => taskMinutes(a) - taskMinutes(b));
+  const allDay = tasks.filter((task) => !isLate(task) && taskMinutes(task) === null);
+  const slots = Array.from({ length: DAY_SPAN / 30 }, (_, i) => (i % 2 === 0 ? `<div class="slot hour" data-h="${DAY_START / 60 + i / 2}"></div>` : '<div class="slot"></div>')).join('');
+  return `${overdue.length ? `<div class="overdue">${overdue.map((task) => cardHtml(task)).join('')}</div>` : ''}
+    <div class="timeline">${slots}${timed.map((task) => cardHtml(task, { attrs: ` data-min="${taskMinutes(task)}"` })).join('')}</div>
+    <div class="allday">${allDay.map((task) => cardHtml(task)).join('')}</div>`;
+}
+/** Расставляет карточки таймлайна по времени (px), разводит наложения сдвигом, рисует линию «сейчас». */
+function layoutTimelines() {
+  const timeZone = state.settings.timezone || 'Europe/Moscow';
+  const today = todayLocal(timeZone);
+  const now = parts(new Date().toISOString(), timeZone);
+  const nowMinutes = now.hour * 60 + now.minute;
+  document.querySelectorAll('.timeline').forEach((timeline) => {
+    const height = timeline.clientHeight;
+    if (!height) return;
+    const toPx = (minutes) => (Math.min(DAY_END, Math.max(DAY_START, minutes)) - DAY_START) / DAY_SPAN * height;
+    let prev = null;
+    const cards = Array.from(timeline.querySelectorAll('.card[data-min]')).sort((a, b) => Number(a.dataset.min) - Number(b.dataset.min));
+    cards.forEach((card, index) => {
+      const h = card.offsetHeight;
+      let top = Math.min(height - h, toPx(Number(card.dataset.min)));
+      let shift = 0;
+      if (prev && top < prev.top + prev.h - 2) { // наложение — чуть ниже и правее предыдущей
+        top = Math.min(height - h, Math.max(top, prev.top + 18));
+        shift = prev.shift + 10;
+      } else shift = 0;
+      card.style.top = `${Math.max(0, top)}px`;
+      card.style.left = `${2 + shift}px`;
+      card.style.zIndex = String(3 + index);
+      prev = { top: Math.max(0, top), h, shift };
+    });
+    let line = timeline.querySelector('.now');
+    const isToday = timeline.closest('.col')?.dataset.day === today;
+    if (isToday && nowMinutes >= DAY_START && nowMinutes <= DAY_END) {
+      if (!line) { line = document.createElement('div'); line.className = 'now'; timeline.appendChild(line); }
+      line.style.top = `${toPx(nowMinutes)}px`;
+    } else line?.remove();
+  });
+}
+/** Время по положению курсора в таймлайне (шаг 30 минут) или null, если ниже сетки (зона «без времени»). */
+function minutesAtPoint(zone, clientY) {
+  const timeline = zone.querySelector('.timeline');
+  if (!timeline) return null;
+  const rect = timeline.getBoundingClientRect();
+  if (clientY >= rect.bottom) return null;
+  const ratio = Math.min(1, Math.max(0, (clientY - rect.top) / rect.height));
+  return Math.min(DAY_END - 30, DAY_START + Math.round(ratio * DAY_SPAN / 30) * 30);
 }
 
 function renderBoard() {
@@ -675,13 +781,19 @@ function renderBoard() {
   const columnHtml = (day, tasks, extraClass = '', body = null) => `
       <section class="col ${extraClass} ${day.isToday ? 'is-today' : ''} ${day.isPast ? 'past' : ''} ${day.weekend ? 'weekend' : ''}" data-day="${day.date}">
         <div class="col-head"><span class="name">${day.name}</span><span class="n">${tasks.length || ''}</span><span class="date">${day.sub}</span></div>
-        <div class="col-body" data-zone="day" data-day="${day.date}">${body ?? tasks.map((task) => cardHtml(task)).join('')}</div>
+        <div class="col-body" data-zone="day" data-day="${day.date}">${body ?? dayBodyHtml(tasks)}</div>
       </section>`;
   $('board').innerHTML = columnHtml(todayCol, buckets.today, 'today-pane')
     + `<div class="days" id="days">${days.map((day) => day.isToday
       ? columnHtml(day, buckets.today, '', '<div class="same-day">← задачи на сегодня — в колонке слева</div>')
       : columnHtml(day, buckets.days.get(day.date))).join('')}</div>`;
   const daysEl = $('days');
+  const dayBody = daysEl.querySelector('.col-body');
+  if (dayBody) {
+    const cs = getComputedStyle(dayBody);
+    const width = dayBody.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    if (width > 60) document.documentElement.style.setProperty('--day-card-w', `${Math.round(width)}px`); // карточки на полке — той же ширины, что в днях
+  }
   daysEl.scrollLeft = state.daysScroll || 0;
   daysEl.addEventListener('scroll', () => { state.daysScroll = daysEl.scrollLeft; if (!pan) updateRangeLabel(); }, { passive: true });
   // Автопрокрутка ленты, когда карточку тянут к её краю.
@@ -693,9 +805,15 @@ function renderBoard() {
   });
   attachDaysPan(daysEl);
   updateRangeLabel();
+  layoutTimelines();
   // Двойной клик по дню (не по карточке) — новая задача сразу на эту дату; по полке — без срока.
   document.querySelectorAll('#board .col[data-day]').forEach((col) => {
-    col.addEventListener('dblclick', (event) => { if (!event.target.closest('.card, button')) openAdd(col.dataset.day); });
+    col.addEventListener('dblclick', (event) => {
+      if (event.target.closest('.card, button')) return;
+      const zone = col.querySelector('.col-body[data-zone="day"]');
+      const minutes = zone && event.target.closest('.timeline') ? minutesAtPoint(zone, event.clientY) : null;
+      openAdd(col.dataset.day, minutes === null ? '' : minutesLabel(minutes));
+    });
   });
 
 
@@ -787,8 +905,10 @@ function openRangeCalendar() {
 let dragId = null;
 let placeholder = null;
 
+let dragGrabY = 0; // где внутри карточки схватили — чтобы время считалось по верхнему краю карточки
 function onDragStart(event) {
   dragId = event.currentTarget.dataset.id;
+  dragGrabY = event.clientY - event.currentTarget.getBoundingClientRect().top;
   event.currentTarget.classList.add('dragging');
   event.dataTransfer.effectAllowed = 'move';
   event.dataTransfer.setData('text/plain', dragId);
@@ -798,8 +918,7 @@ function onDragStart(event) {
   setTimeout(() => { if (dragId) { pickWeek = 1; renderWeekPick(); document.body.classList.add('dragging'); } }, 0);
 }
 function onDragEnd() {
-  reorderBusy = false;
-  document.querySelectorAll('.card[style]').forEach((card) => card.removeAttribute('style'));
+  document.querySelectorAll('.card[style]').forEach((card) => { card.style.transform = ''; card.style.transition = ''; }); // позиции таймлайна (top/left) не трогаем
   document.querySelectorAll('.card.dragging').forEach((card) => card.classList.remove('dragging'));
   document.querySelectorAll('.col.drop').forEach((col) => col.classList.remove('drop'));
   document.body.classList.remove('dragging');
@@ -877,7 +996,8 @@ function onDragOver(event) {
   const zone = col.querySelector('.col-body[data-zone]');
   if (!zone) return;
   col.classList.add('drop');
-  // Куда вставить: перед первой карточкой, чья середина ниже (или правее — на полке) курсора.
+  if (zone.dataset.zone === 'day') { placeDayPlaceholder(zone, event.clientY - dragGrabY); return; }
+  // Полка: вставить перед первой карточкой, чья середина правее курсора.
   const horizontal = zone.dataset.zone !== 'day';
   const cards = Array.from(zone.querySelectorAll('.card:not(.dragging)'));
   const next = cards.find((card) => {
@@ -887,6 +1007,23 @@ function onDragOver(event) {
   if (placeholder && placeholder.parentElement !== zone || (next ? placeholder.nextSibling !== next : placeholder.parentElement !== zone || zone.lastElementChild !== placeholder)) {
     movePlaceholder(zone, next);
   }
+}
+/** Заглушка в колонке дня: прилипает к получасу под верхним краем карточки; ниже сетки — в зону «без времени». */
+function placeDayPlaceholder(zone, topY) {
+  if (!placeholder) return;
+  const timeline = zone.querySelector('.timeline');
+  const allday = zone.querySelector('.allday');
+  const minutes = minutesAtPoint(zone, topY + 1);
+  if (minutes === null) {
+    if (placeholder.parentElement !== allday) { placeholder.removeAttribute('style'); allday.appendChild(placeholder); }
+    placeholder.dataset.min = '';
+    return;
+  }
+  if (placeholder.parentElement !== timeline) timeline.appendChild(placeholder);
+  const rect = timeline.getBoundingClientRect();
+  const top = Math.min(rect.height - placeholder.offsetHeight, (minutes - DAY_START) / DAY_SPAN * rect.height);
+  placeholder.style.top = `${Math.max(0, top)}px`;
+  placeholder.dataset.min = String(minutes);
 }
 /** Прямоугольник карточки по раскладке, без текущего transform (FLIP-анимация, hover). */
 function layoutRect(card) {
@@ -908,10 +1045,10 @@ function movePlaceholder(zone, next) {
     card.style.transition = 'none';
     card.style.transform = `translate(${dx}px, ${dy}px)`;
     requestAnimationFrame(() => {
-      if (!dragId) { card.removeAttribute('style'); return; }
+      if (!dragId) { card.style.transform = ''; card.style.transition = ''; return; }
       card.style.transition = 'transform .18s ease';
       card.style.transform = '';
-      setTimeout(() => card.removeAttribute('style'), 200);
+      setTimeout(() => { card.style.transform = ''; card.style.transition = ''; }, 200);
     });
   }
 }
@@ -930,9 +1067,49 @@ async function onDrop(event) {
     .map((element) => (element === placeholder ? taskId : element.dataset?.id))
     .filter((id, index, list) => id && list.indexOf(id) === index);
   if (!order.includes(taskId)) order.push(taskId);
-  const target = zone.dataset.zone === 'day' ? { kind: 'day', date: zone.dataset.day } : { kind: zone.dataset.zone };
+  const target = zone.dataset.zone === 'day'
+    ? { kind: 'day', date: zone.dataset.day, minutes: placeholder?.dataset.min ? Number(placeholder.dataset.min) : null, allDay: placeholder?.parentElement?.classList.contains('allday') ?? false }
+    : { kind: zone.dataset.zone };
+  const point = { x: event.clientX, y: event.clientY };
   onDragEnd();
-  await moveTask(taskId, target, order);
+  await moveTask(taskId, target, target.kind === 'day' ? [] : order);
+  if (target.kind === 'day' && target.minutes !== null) {
+    const task = state.tasks.find((item) => item.id === taskId);
+    if (task && taskMinutes(task) !== target.minutes) openTimeSuggest(taskId, target.date, target.minutes, point);
+  }
+}
+
+/** Всплывашка у места броска: предлагает время по сетке; Enter/✓ — поставить, Esc/✕ — оставить как было. */
+function openTimeSuggest(taskId, date, minutes, point) {
+  closePicker();
+  const task = state.tasks.find((item) => item.id === taskId);
+  if (!task) return;
+  const current = taskMinutes(task);
+  const el = document.createElement('div');
+  el.className = 'picker timepop';
+  el.innerHTML = `
+    <div class="row"><span>Время</span><input id="tpTime" value="${minutesLabel(minutes)}" inputmode="numeric" autocomplete="off" /><button type="button" class="ok" title="Поставить (Enter)">✓</button><button type="button" class="no" title="Оставить (Esc)">✕</button></div>
+    <div class="hint">${current === null ? 'Сейчас — без времени' : `Сейчас — ${minutesLabel(current)}`} · Enter — поставить, Esc — оставить</div>`;
+  document.body.appendChild(el);
+  const input = el.querySelector('#tpTime');
+  picker = { kind: 'timepop', input, el, point };
+  placePicker();
+  input.focus(); input.select();
+  const apply = async () => {
+    const text = parseTimeText(input.value);
+    if (!text) { input.classList.add('bad'); return; }
+    closePicker();
+    const [hour, minute] = text.split(':').map(Number);
+    const [year, month, day] = date.split('-').map(Number);
+    const timeZone = state.settings.timezone || 'Europe/Moscow';
+    const due = zonedToUtc(year, month, day, hour, minute, timeZone).toISOString();
+    bridge.log('время по сетке', `«${task.title}» → ${text}`);
+    await saveTasks(state.tasks.map((item) => (item.id === taskId ? { ...item, due_at: due, all_day: false, updated_at: new Date().toISOString(), dirty: true } : item)), `${task.title} — ${text}`);
+  };
+  el.querySelector('.ok').onclick = apply;
+  el.querySelector('.no').onclick = () => closePicker();
+  input.addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); apply(); } });
+  input.addEventListener('input', () => input.classList.remove('bad'));
 }
 
 /** Переносит задачу: меняет срок (время сохраняется) и переписывает порядок карточек в целевой зоне. */
@@ -945,16 +1122,19 @@ async function moveTask(taskId, target, order) {
   if (target.kind === 'day') {
     const dateString = target.date;
     const [year, month, day] = dateString.split('-').map(Number);
-    if (task.due_at && !task.all_day) {
+    if (target.allDay) {
+      patch = { due_at: zonedToUtc(year, month, day, 12, 0, timeZone).toISOString(), all_day: true };
+    } else if (task.due_at && !task.all_day) {
       const p = parts(task.due_at, timeZone);
       patch = { due_at: zonedToUtc(year, month, day, p.hour, p.minute, timeZone).toISOString(), all_day: false };
     } else {
       patch = { due_at: zonedToUtc(year, month, day, 12, 0, timeZone).toISOString(), all_day: true };
     }
-    if (target.kind === 'day' && task.due_at && localDate(task.due_at, timeZone) === target.date) patch = {};
+    if (task.due_at && localDate(task.due_at, timeZone) === target.date && (!target.allDay || task.all_day)) patch = {};
   } else if (target.kind === 'none') {
     patch = task.due_at ? { due_at: null, all_day: false } : {};
   }
+  if (!Object.keys(patch).length && !order.length) return; // бросили туда же — менять нечего
   const positions = new Map(order.map((id, index) => [id, index * 10]));
   const next = state.tasks.map((item) => {
     const isMoved = item.id === taskId;
@@ -1548,13 +1728,13 @@ async function updatePreview() {
   if (box.isConnected) box.textContent = bits.join(' · ');
 }
 
-function openAdd(dateIso = '') {
+function openAdd(dateIso = '', time = '') {
   state.draft = null;
   state.pending = newTask('', { remind_offsets: [...DEFAULT_OFFSETS] });
   state.pending.due_at = null;
   state.selectedId = state.pending.id;
   render();
-  if (dateIso && $('fDate')) { $('fDate').value = displayDate(dateIso); captureDraft(state.pending); }
+  if (dateIso && $('fDate')) { $('fDate').value = displayDate(dateIso); if (time && $('fTime')) $('fTime').value = time; captureDraft(state.pending); }
 }
 
 // --- Архив ---
@@ -1655,7 +1835,7 @@ function renderSettings() {
       <div class="field"><label>Прозрачность дней и карточек: <span id="sOpacityValue">${Number(settings.panelOpacity) || 10}%</span></label>
         <input type="range" class="slim" id="sOpacity" min="5" max="60" step="5" value="${Number(settings.panelOpacity) || 10}" /></div>
       <div class="field"><label>Высота карточек: <span id="sScaleValue">${Number(settings.cardScale) || 100}%</span></label>
-        <input type="range" class="slim" id="sScale" min="60" max="160" step="5" value="${Number(settings.cardScale) || 100}" /></div>
+        <input type="range" class="slim" id="sScale" min="40" max="160" step="5" value="${Number(settings.cardScale) || 100}" /></div>
     </div>
 
     <div class="section">
@@ -1682,7 +1862,7 @@ function renderSettings() {
   $('sTheme').onchange = async () => { await saveSettings({ theme: $('sTheme').value }); await applyAppearance(); };
   $('sOpacity').oninput = () => { $('sOpacityValue').textContent = `${$('sOpacity').value}%`; document.documentElement.style.setProperty('--panel-alpha', String(Number($('sOpacity').value) / 100)); };
   $('sOpacity').onchange = async () => { await saveSettings({ panelOpacity: Number($('sOpacity').value) }); await applyAppearance(); };
-  $('sScale').oninput = () => { $('sScaleValue').textContent = `${$('sScale').value}%`; document.documentElement.style.setProperty('--scale', String(Number($('sScale').value) / 100)); };
+  $('sScale').oninput = () => { $('sScaleValue').textContent = `${$('sScale').value}%`; setCardScale($('sScale').value); };
   $('sScale').onchange = async () => { await saveSettings({ cardScale: Number($('sScale').value) }); await applyAppearance(); };
   $('drawer').querySelectorAll('[data-wall]').forEach((button) => {
     button.onclick = async () => {
@@ -1857,6 +2037,7 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'n' && event.ctrlKey) { event.preventDefault(); openAdd(); }
 });
 
+setInterval(() => { if (!dragId) layoutTimelines(); }, 60_000);
 let resizeTimer = null;
 window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(renderBoard, 120); });
 bridge.onTasksChanged((tasks) => { state.tasks = tasks || []; render(); });
