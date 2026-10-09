@@ -65,6 +65,11 @@ group('Слияние локального и облачного');
   const row = toCloudRow(task('k', { dirty: true, synced: false }), 'user-1');
   check('в облачную строку локальные пометки не попадают', row.user_id === 'user-1' && row.dirty === undefined && row.synced === undefined);
   check('все облачные поля перечислены', CLOUD_FIELDS.includes('remind_offsets') && CLOUD_FIELDS.includes('recurrence') && !CLOUD_FIELDS.includes('dirty'));
+  const bare = toCloudRow({ id: 'new-1', title: 'Новая', updated_at: '2026-10-09T10:00:00.000Z' }, 'user-1');
+  check('у новой задачи без служебных полей occurrence = 1, а не null', bare.occurrence === 1 && bare.series_id === null && bare.sort_order === 0, JSON.stringify(bare));
+  check('набор ключей строки одинаков для любой задачи (PostgREST подставляет null в недостающие)', Object.keys(bare).sort().join() === ['user_id', ...CLOUD_FIELDS].sort().join(), Object.keys(bare).join());
+  const nulled = toCloudRow({ id: 'n', title: 't', occurrence: null, tags: null, updated_at: '2026-10-09T10:00:00.000Z' }, 'user-1');
+  check('явный null в not-null полях заменяется на значение по умолчанию', nulled.occurrence === 1 && Array.isArray(nulled.tags) && nulled.tags.length === 0);
 }
 
 group('Локальное хранилище');

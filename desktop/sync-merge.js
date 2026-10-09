@@ -89,13 +89,31 @@ export const CLOUD_FIELDS = [
   'remind_offsets', 'status', 'recurrence', 'series_id', 'occurrence', 'sort_order', 'updated_at',
 ];
 
-/** @param {TaskLike} task @param {string} userId */
+/** Значения для полей, которых у локальной задачи может не быть (новая задача, старый файл). */
+const CLOUD_DEFAULTS = {
+  notes: '', priority: 1, project: null, tags: [], due_at: null, all_day: false,
+  remind_offsets: [], status: 'open', recurrence: null, series_id: null, occurrence: 1, sort_order: 0,
+};
+
+/**
+ * Строка для upsert в public.tasks.
+ * Важно: PostgREST при массовой вставке берёт набор колонок по объединению ключей всех строк,
+ * и в строке без ключа подставляет null (не default). Поэтому у каждой строки всегда полный набор полей —
+ * иначе новая локальная задача рядом с облачной падала с «null value in column "occurrence"».
+ * @param {TaskLike} task @param {string} userId
+ */
 export function toCloudRow(task, userId) {
   const row = { user_id: userId };
   for (const field of CLOUD_FIELDS) {
-    if (task[field] === undefined) continue;
-    row[field] = task[field];
+    const value = task[field];
+    if (value === undefined || (value === null && field in CLOUD_DEFAULTS && CLOUD_DEFAULTS[field] !== null)) {
+      if (field in CLOUD_DEFAULTS) row[field] = Array.isArray(CLOUD_DEFAULTS[field]) ? [] : CLOUD_DEFAULTS[field];
+      else if (field === 'updated_at') row[field] = new Date().toISOString();
+      continue;
+    }
+    row[field] = value;
   }
+  if (!Number.isInteger(row.occurrence) || row.occurrence < 1) row.occurrence = 1;
   return row;
 }
 

@@ -203,7 +203,7 @@ export async function syncTasks(localTasks, options = {}) {
   const outgoing = collectOutgoing(result.tasks).upserts.filter((task) => !options.skipped?.includes(task.id));
   if (outgoing.length > 0) {
     const rows = outgoing.map((task) => toCloudRow(task, userId));
-    const { error } = await client.from('tasks').upsert(rows, { onConflict: 'user_id,id' });
+    const { error } = await client.from('tasks').upsert(rows, { onConflict: 'user_id,id', defaultToNull: false });
     if (error) throw new Error(error.message);
     for (const task of outgoing) {
       task.dirty = false;

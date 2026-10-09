@@ -207,7 +207,23 @@
   .offsets button.on { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
   .offsets button.custom { border-style: dashed; }
   .custom-offset { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
-  .custom-offset input[type=range] { flex: 1; accent-color: var(--accent); }
+  .custom-offset input[type=range] { flex: 1; }
+  /* Ползунок в общем стиле */
+  input[type=range].slim { -webkit-appearance: none; appearance: none; height: 6px; border-radius: 3px; background: rgba(var(--card-rgb), .55); border: 1px solid var(--card-line); outline: none; padding: 0; }
+  input[type=range].slim::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--pop-bg); backdrop-filter: blur(8px); border: 1px solid var(--accent); box-shadow: 0 1px 4px rgba(0, 0, 0, .25); cursor: pointer; }
+  /* Выпадающий список в общем стиле (вместо системного select) */
+  .select-btn { width: 100%; text-align: left; display: flex; justify-content: space-between; align-items: center; gap: 8px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; color: var(--text); }
+  :root[data-theme="light"] .modal-card .select-btn { background: rgba(255, 255, 255, .6); }
+  .select-btn::after { content: "▾"; color: var(--muted); font-size: 12px; }
+  .select-btn.open { border-color: var(--accent); }
+  .picker.menu { padding: 6px; min-width: 160px; }
+  .picker.menu button { display: block; width: 100%; text-align: left; padding: 7px 12px; font-size: 13px; }
+  .picker.menu button.sel { background: var(--accent); color: #fff; }
+  .picker.menu button.danger-item { color: var(--danger); }
+  .picker.menu button.danger-item:hover { background: rgba(217, 65, 74, .12); }
+  .picker.menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; }
+  .confirm-card { width: min(420px, calc(100vw - 40px)); }
+  .confirm-card p { margin: 6px 0 14px; }
   .custom-offset span { font-size: 12px; color: var(--muted); min-width: 92px; }
   .custom-offset button { padding: 4px 10px; font-size: 12px; border-radius: 20px; }
   .actions { display: flex; gap: 8px; margin-top: 8px; }
@@ -268,6 +284,8 @@
 <div class="drawer" id="drawer" style="display:none"></div>
 <div class="modal" id="modal"><div class="modal-card" id="editor"></div></div>
 <div class="modal" id="archiveModal"><div class="modal-card" id="archiveBody"></div></div>
+<div class="modal" id="confirmModal"><div class="modal-card confirm-card" id="confirmBody"></div></div>
+<div class="modal" id="moveModal"><div class="modal-card confirm-card" id="moveBody"></div></div>
 <div class="modal" id="logModal"><div class="modal-card" style="width:min(860px, calc(100vw - 40px))" id="logBody"></div></div>
 <div class="toast" id="toast"></div>
 
@@ -632,6 +650,7 @@ function renderBoard() {
   });
   document.querySelectorAll('.card[data-id]').forEach((card) => {
     card.onclick = () => selectTask(card.dataset.id);
+    card.oncontextmenu = (event) => openCardMenu(event, card.dataset.id);
     card.addEventListener('dragstart', onDragStart);
     card.addEventListener('dragend', onDragEnd);
   });
@@ -864,12 +883,8 @@ function renderEditor() {
       <div class="field"><label>Время</label><input id="fTime" value="${escapeHtml(v.time)}" placeholder="чч:мм" inputmode="numeric" autocomplete="off" /></div>
     </div>
     <div class="row">
-      <div class="field"><label>Приоритет</label><select id="fPriority">
-        ${PRIORITY_CHOICES.map((index) => `<option value="${index}" ${Math.max(1, Number(v.priority) || 1) === index ? 'selected' : ''}>${PRIORITY_LABELS[index]}</option>`).join('')}
-      </select></div>
-      <div class="field"><label>Повтор</label><select id="fRecurrence">
-        ${RECURRENCE_OPTIONS.map(([value, label]) => `<option value="${value}" ${v.recurrence === value ? 'selected' : ''}>${label}</option>`).join('')}
-      </select></div>
+      <div class="field"><label>Приоритет</label>${selectHtml('fPriority', PRIORITY_CHOICES.map((index) => [String(index), PRIORITY_LABELS[index]]), String(Math.max(1, Number(v.priority) || 1)))}</div>
+      <div class="field"><label>Повтор</label>${selectHtml('fRecurrence', RECURRENCE_OPTIONS, v.recurrence)}</div>
     </div>
     <div class="row">
       <div class="field"><label>Проект</label><input id="fProject" value="${escapeHtml(v.project)}" placeholder="например, работа" /></div>
@@ -883,7 +898,7 @@ function renderEditor() {
         <button data-offset="none" class="${v.remind_offsets.length === 0 ? 'on' : ''}">выключены</button>
       </div>
       <div class="custom-offset">
-        <input type="range" id="fOffsetSlider" min="0" max="${OFFSET_SLIDER.length - 1}" step="1" value="${OFFSET_SLIDER.indexOf(60)}" />
+        <input type="range" class="slim" id="fOffsetSlider" min="0" max="${OFFSET_SLIDER.length - 1}" step="1" value="${OFFSET_SLIDER.indexOf(60)}" />
         <span id="fOffsetValue">за ${offsetLabel(60)}</span>
         <button class="ghost" id="fOffsetAdd" title="Добавить своё напоминание">+ Добавить</button>
       </div>
@@ -900,6 +915,8 @@ function renderEditor() {
   closePicker();
   attachPicker($('fDate'), 'date');
   attachPicker($('fTime'), 'time');
+  attachSelect('fPriority', PRIORITY_CHOICES.map((index) => [String(index), PRIORITY_LABELS[index]]));
+  attachSelect('fRecurrence', RECURRENCE_OPTIONS);
   // Любой ввод в карточке — в черновик, чтобы перерисовка его не потеряла.
   ['fTitle', 'fNotes', 'fDate', 'fTime', 'fPriority', 'fRecurrence', 'fProject', 'fTags'].forEach((id) => {
     $(id).addEventListener('input', () => captureDraft(task));
@@ -947,14 +964,7 @@ function renderEditor() {
     state.selectedId = null; // карточка закрывается, задача уходит в архив (кнопка ▤ сверху)
     await saveTasks(next, task.status === 'archived' ? 'Возвращено из архива' : 'Убрано в архив');
   };
-  $('fDelete').onclick = async () => {
-    state.draft = null;
-    await bridge.remove(task.id);
-    state.tasks = state.tasks.filter((item) => item.id !== task.id);
-    state.selectedId = null;
-    render();
-    toast('Задача удалена');
-  };
+  $('fDelete').onclick = () => confirmDelete(task.id);
 }
 
 function offsetLabel(minutes) {
@@ -1158,11 +1168,14 @@ function openPicker(input, kind) {
 }
 function closePicker() {
   if (!picker) return;
+  picker.anchor?.classList.remove('open');
   picker.el.remove();
   picker = null;
 }
 function placePicker() {
-  const rect = picker.input.getBoundingClientRect();
+  const rect = picker.point
+    ? { left: picker.point.x, right: picker.point.x, top: picker.point.y, bottom: picker.point.y }
+    : (picker.anchor ?? picker.input).getBoundingClientRect();
   const el = picker.el;
   let top = rect.bottom + 4;
   if (top + el.offsetHeight > window.innerHeight - 8) top = Math.max(8, rect.top - el.offsetHeight - 4);
@@ -1180,6 +1193,7 @@ function setPickerValue(text) {
 }
 function renderPicker() {
   if (!picker) return;
+  if (picker.kind !== 'date' && picker.kind !== 'time') { placePicker(); return; }
   const timeZone = state.settings.timezone || 'Europe/Moscow';
   const today = todayLocal(timeZone);
   const el = picker.el;
@@ -1219,8 +1233,144 @@ function renderPicker() {
   placePicker();
 }
 document.addEventListener('mousedown', (event) => {
-  if (picker && !picker.el.contains(event.target) && event.target !== picker.input) closePicker();
+  if (picker && !picker.el.contains(event.target) && event.target !== picker.input && !(picker.anchor && picker.anchor.contains(event.target))) closePicker();
 }, true);
+
+// --- Выпадающий список в общем стиле: скрытое поле + кнопка + меню-пикер ---
+function selectHtml(id, options, value) {
+  const current = options.find(([v]) => String(v) === String(value ?? '')) ?? options[0];
+  return `<input type="hidden" id="${id}" value="${escapeHtml(current[0])}" /><button type="button" class="select-btn" id="${id}Btn">${escapeHtml(current[1])}</button>`;
+}
+function attachSelect(id, options) {
+  const hidden = $(id);
+  const button = $(`${id}Btn`);
+  if (!hidden || !button) return;
+  button.onclick = () => {
+    if (picker && picker.input === hidden) { closePicker(); return; }
+    closePicker();
+    const el = document.createElement('div');
+    el.className = 'picker menu';
+    el.addEventListener('mousedown', (event) => event.preventDefault());
+    el.innerHTML = options.map(([v, label]) => `<button type="button" data-v="${escapeHtml(v)}" class="${String(v) === hidden.value ? 'sel' : ''}">${escapeHtml(label)}</button>`).join('');
+    document.body.appendChild(el);
+    picker = { kind: 'select', input: hidden, el, anchor: button };
+    button.classList.add('open');
+    el.querySelectorAll('[data-v]').forEach((item) => {
+      item.onclick = () => {
+        hidden.value = item.dataset.v;
+        button.textContent = options.find(([v]) => String(v) === item.dataset.v)?.[1] ?? item.dataset.v;
+        hidden.dispatchEvent(new Event('change', { bubbles: true }));
+        closePicker();
+      };
+    });
+    placePicker();
+  };
+}
+
+// --- Контекстное меню карточки (правая кнопка) ---
+function openCardMenu(event, taskId) {
+  event.preventDefault();
+  closePicker();
+  const task = state.tasks.find((item) => item.id === taskId);
+  if (!task) return;
+  const el = document.createElement('div');
+  el.className = 'picker menu';
+  el.innerHTML = `
+    <button type="button" data-act="open">Открыть</button>
+    <button type="button" data-act="done">${task.status === 'done' ? 'Вернуть в работу' : 'Выполнено'}</button>
+    <button type="button" data-act="move">Переместить…</button>
+    <hr />
+    <button type="button" data-act="archive">${task.status === 'archived' ? 'Вернуть из архива' : 'В архив'}</button>
+    <button type="button" data-act="delete" class="danger-item">Удалить…</button>`;
+  document.body.appendChild(el);
+  picker = { kind: 'menu', input: null, el, point: { x: event.clientX, y: event.clientY } };
+  placePicker();
+  el.querySelectorAll('[data-act]').forEach((item) => {
+    item.onclick = async () => {
+      const act = item.dataset.act;
+      closePicker();
+      if (act === 'open') selectTask(taskId);
+      else if (act === 'done') await toggleDone(taskId);
+      else if (act === 'move') openMove(taskId);
+      else if (act === 'archive') {
+        const archived = task.status === 'archived';
+        await saveTasks(state.tasks.map((t) => (t.id === taskId ? { ...t, status: archived ? 'open' : 'archived', updated_at: new Date().toISOString(), dirty: true } : t)), archived ? 'Возвращено из архива' : `В архиве: ${task.title}`);
+        bridge.log(archived ? 'возвращено из архива' : 'убрано в архив', task.title);
+      } else if (act === 'delete') confirmDelete(taskId);
+    };
+  });
+}
+
+/** Подтверждение удаления — насовсем, без архива. */
+function confirmDelete(taskId) {
+  const task = state.tasks.find((item) => item.id === taskId);
+  if (!task) return;
+  $('confirmBody').innerHTML = `
+    <div class="editor-head"><h3>Удалить задачу?</h3><button class="icon-btn" id="confirmClose" title="Отмена (Esc)">×</button></div>
+    <p>«${escapeHtml(task.title)}» будет удалена насовсем — в архив она не попадёт.</p>
+    <div class="actions"><button class="danger" id="confirmYes">Удалить</button><button class="ghost" id="confirmNo">Отмена</button></div>`;
+  $('confirmModal').classList.add('open');
+  const close = () => $('confirmModal').classList.remove('open');
+  $('confirmClose').onclick = close;
+  $('confirmNo').onclick = close;
+  $('confirmYes').onclick = async () => {
+    close();
+    state.draft = null;
+    await bridge.remove(taskId);
+    bridge.log('удалено', task.title);
+    state.tasks = state.tasks.filter((item) => item.id !== taskId);
+    if (state.selectedId === taskId) state.selectedId = null;
+    render();
+    toast('Задача удалена');
+  };
+  setTimeout(() => $('confirmNo').focus(), 30);
+}
+
+/** Окно «Переместить»: дата и время — замена перетаскиванию. */
+function openMove(taskId) {
+  const task = state.tasks.find((item) => item.id === taskId);
+  if (!task) return;
+  const timeZone = state.settings.timezone || 'Europe/Moscow';
+  const p = task.due_at ? parts(task.due_at, timeZone) : null;
+  const date = p ? displayDate(`${p.year}-${String(p.month).padStart(2, '0')}-${String(p.day).padStart(2, '0')}`) : '';
+  const time = p && !task.all_day ? `${String(p.hour).padStart(2, '0')}:${String(p.minute).padStart(2, '0')}` : '';
+  $('moveBody').innerHTML = `
+    <div class="editor-head"><h3>Переместить</h3><button class="icon-btn" id="moveClose" title="Отмена (Esc)">×</button></div>
+    <p class="hint" style="margin:0 0 10px">«${escapeHtml(task.title)}»</p>
+    <div class="row">
+      <div class="field"><label>Дата</label><input id="mDate" value="${escapeHtml(date)}" placeholder="дд.мм.гггг" inputmode="numeric" autocomplete="off" /></div>
+      <div class="field"><label>Время</label><input id="mTime" value="${escapeHtml(time)}" placeholder="чч:мм" inputmode="numeric" autocomplete="off" /></div>
+    </div>
+    <div class="actions"><button class="primary" id="moveOk">Переместить</button><button class="ghost" id="moveNone">Без срока</button><button class="ghost" id="moveCancel">Отмена</button></div>`;
+  $('moveModal').classList.add('open');
+  attachPicker($('mDate'), 'date');
+  attachPicker($('mTime'), 'time');
+  const close = () => { closePicker(); $('moveModal').classList.remove('open'); };
+  $('moveClose').onclick = close;
+  $('moveCancel').onclick = close;
+  $('moveNone').onclick = async () => {
+    close();
+    if (!task.due_at) return;
+    await saveTasks(state.tasks.map((t) => (t.id === taskId ? { ...t, due_at: null, all_day: false, updated_at: new Date().toISOString(), dirty: true } : t)), `«${task.title}» — без срока`);
+    bridge.log('перемещение', `«${task.title}» → без срока`);
+  };
+  $('moveOk').onclick = async () => {
+    let dateIso = parseDateText($('mDate').value);
+    const timeText = parseTimeText($('mTime').value);
+    if (dateIso === null) { $('mDate').classList.add('bad'); toast('Не понял дату — нужно дд.мм.гггг'); return; }
+    if (timeText === null) { $('mTime').classList.add('bad'); toast('Не понял время — нужно чч:мм'); return; }
+    if (!dateIso && timeText) dateIso = todayLocal(timeZone);
+    if (!dateIso) { $('mDate').classList.add('bad'); toast('Выбери дату или нажми «Без срока»'); return; }
+    const [year, month, day] = dateIso.split('-').map(Number);
+    const [hour, minute] = timeText ? timeText.split(':').map(Number) : [12, 0];
+    const patch = { due_at: zonedToUtc(year, month, day, hour, minute, timeZone).toISOString(), all_day: !timeText };
+    close();
+    await saveTasks(state.tasks.map((t) => (t.id === taskId ? { ...t, ...patch, updated_at: new Date().toISOString(), dirty: true } : t)), `«${task.title}» — ${dueDayLabelFor(dateIso)}${timeText ? ` ${timeText}` : ''}`);
+    bridge.log('перемещение', `«${task.title}» → ${dateIso}${timeText ? ` ${timeText}` : ''}`);
+  };
+  ['mDate', 'mTime'].forEach((id) => $(id).addEventListener('keydown', (event) => { if (event.key === 'Enter' && !picker) $('moveOk').click(); }));
+  setTimeout(() => $('mDate').focus(), 30);
+}
 
 // --- Добавление задачи: сразу полная карточка ---
 let previewTimer = null;
@@ -1519,6 +1669,8 @@ $('weekPrev').onclick = () => { state.weekOffset -= 1; renderBoard(); };
 $('weekNext').onclick = () => { state.weekOffset += 1; renderBoard(); };
 $('weekLabel').onclick = () => { state.weekOffset = 0; renderBoard(); };
 $('archiveModal').addEventListener('mousedown', (event) => { if (event.target === $('archiveModal')) closeArchive(); });
+$('confirmModal').addEventListener('mousedown', (event) => { if (event.target === $('confirmModal')) $('confirmModal').classList.remove('open'); });
+$('moveModal').addEventListener('mousedown', (event) => { if (event.target === $('moveModal')) { closePicker(); $('moveModal').classList.remove('open'); } });
 $('search').addEventListener('input', () => { state.search = $('search').value; render(); });
 $('showDone').onclick = () => { state.showDone = !state.showDone; render(); };
 $('settingsButton').onclick = openDrawer;
@@ -1535,6 +1687,9 @@ $('logModal').addEventListener('mousedown', (event) => { if (event.target === $(
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     if ($('logModal').classList.contains('open')) { closeLog(); return; }
+    if (picker) { closePicker(); return; }
+    if ($('confirmModal').classList.contains('open')) { $('confirmModal').classList.remove('open'); return; }
+    if ($('moveModal').classList.contains('open')) { $('moveModal').classList.remove('open'); return; }
     if ($('archiveModal').classList.contains('open')) { closeArchive(); return; }
     if ($('modal').classList.contains('open')) { state.draft = null; state.pending = null; state.selectedId = null; render(); return; }
     closeDrawer();
