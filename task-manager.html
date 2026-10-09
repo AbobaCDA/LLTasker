@@ -19,8 +19,7 @@
     --danger: #f2545b;
     --radius: 14px;
     --panel-alpha: .1;            /* прозрачность колонок дней и карточек — одна на всех */
-    --scale: 1;                   /* размер карточек (ползунок в настройках) */
-    --col-w: calc(160px * var(--scale));
+    --scale: 1;                   /* высота карточек (ползунок в настройках) */
     --card-rgb: 34, 40, 54;      /* цвет карточки, прозрачность — отдельно */
     --card-line: rgba(255, 255, 255, .08);
     --solid: #1e2431;             /* непрозрачный фон всплывающих окон */
@@ -96,13 +95,14 @@
   .dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.err { background: var(--danger); }
 
   /* --- Доска: колонка «Сегодня» слева + лента дней по календарю (прокрутка мышкой) --- */
-  .board { flex: 1; min-height: 0; display: flex; gap: 10px; padding: 4px 14px 8px; }
-  .col.today-pane { flex: none; width: calc(var(--col-w) * 1.08); }
-  .days { flex: 1; min-width: 0; display: flex; gap: 7px; overflow-x: auto; overflow-y: hidden; padding-bottom: 3px; scrollbar-width: thin; }
-  .days::-webkit-scrollbar { height: 6px; } .days::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
-  .days .col { flex: none; width: var(--col-w); }
+  .board { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, 7fr); gap: 7px; padding: 4px 14px 8px; }
+  .col.today-pane { margin-right: 8px; }
+  /* Лента на 4 недели вперёд: в окне видно 7 дней той же ширины, остальные — прокруткой (мышкой, колесом, стрелками). */
+  .days { display: flex; gap: 7px; min-height: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+  .days::-webkit-scrollbar { display: none; }
+  .days .col { flex: 0 0 calc((100% - 42px) / 7); min-width: 0; }
   .days .col-head { cursor: grab; }
-  .days.panning, .days.panning * { cursor: grabbing !important; user-select: none; }
+  body.panning, body.panning * { cursor: grabbing !important; user-select: none; }
   .cal-grid button.range { background: var(--accent-soft); border-radius: 0; }
   .cal-grid button.range.first { border-radius: 8px 0 0 8px; } .cal-grid button.range.last { border-radius: 0 8px 8px 0; }
   .col.is-today .col-head .name { color: var(--accent); }
@@ -135,10 +135,10 @@
 
   /* --- Карточка-облачко --- */
   .card {
-    position: relative; aspect-ratio: 4 / 3; width: 100%; flex: none;
+    position: relative; aspect-ratio: calc(4 / 3 / var(--scale)); width: 100%; flex: none;
     border-radius: var(--radius); border: 1px solid var(--card-line);
     background: rgba(var(--card-rgb), var(--panel-alpha)); backdrop-filter: blur(var(--blur));
-    padding: .7em .77em .6em; display: flex; flex-direction: column; gap: .3em; cursor: grab; font-size: calc(13px * var(--scale));
+    padding: .7em .77em .6em; display: flex; flex-direction: column; gap: .3em; cursor: grab; font-size: 13px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, .06); transition: transform .1s, box-shadow .1s;
   }
   .card:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0, 0, 0, .12); border-color: var(--accent); }
@@ -156,14 +156,14 @@
   .card .foot .proj { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .card .stripe { position: absolute; left: 10px; right: 10px; top: 0; height: 3px; border-radius: 0 0 3px 3px; }
   .prio-0 .stripe, .prio-1 .stripe { background: transparent; } .prio-2 .stripe { background: #f59e0b; } .prio-3 .stripe { background: #ef4444; }
-  .placeholder { flex: none; width: 100%; aspect-ratio: 4 / 3; border-radius: var(--radius); border: 2px dashed var(--accent); opacity: .6; }
+  .placeholder { flex: none; width: 100%; aspect-ratio: calc(4 / 3 / var(--scale)); border-radius: var(--radius); border: 2px dashed var(--accent); opacity: .6; }
 
   /* --- Полка внизу: без срока и позже --- */
   .shelf { display: grid; grid-template-columns: 1fr; gap: 8px; padding: 0 14px 12px; height: calc(110px + 40px * var(--scale)); }
   .shelf .col { flex-direction: column; }
   .shelf .col-body { flex-direction: row; overflow-x: auto; overflow-y: hidden; align-items: stretch; }
-  .shelf .card { width: calc(108px * var(--scale)); aspect-ratio: auto; height: 100%; }
-  .shelf .placeholder { width: calc(108px * var(--scale)); aspect-ratio: auto; height: auto; }
+  .shelf .card { width: 108px; aspect-ratio: auto; height: 100%; }
+  .shelf .placeholder { width: 108px; aspect-ratio: auto; height: auto; }
   .shelf.collapsed { height: 40px; }
   .shelf.collapsed .col-body { display: none; }
   .empty-hint { color: var(--muted); font-size: 12px; align-self: center; padding: 3px 9px; border-radius: 8px; background: rgba(var(--card-rgb), .55); }
@@ -374,6 +374,7 @@ const state = {
   info: {},
   search: '',
   selectedId: null,
+  daysScroll: 0, // прокрутка ленты дней в px — восстанавливается после перерисовки
   pending: null, // новая задача, открытая в карточке, но ещё не созданная
   draft: null, // несохранённые правки открытой карточки: { taskId, title, notes, date, time, priority, recurrence, project, tags, remind_offsets }
   showDone: false,
@@ -551,67 +552,49 @@ function weekDays(offset = 0) {
   });
 }
 
-/** Лента дней для доски: от DAYS_BACK дней назад до DAYS_AHEAD вперёд, по календарю. */
-const DAYS_BACK = 30;
-const DAYS_AHEAD = 180;
-let stripCache = { key: '', days: [] };
-function stripDays() {
+/** Лента доски: STRIP_DAYS дней начиная с завтра — ключ-дата, подпись, мелкая дата. В окне видно 7. */
+const STRIP_DAYS = 28;
+function boardDays() {
   const timeZone = state.settings.timezone || 'Europe/Moscow';
   const today = todayLocal(timeZone);
-  const narrow = colWidth() < 150;
-  const key = `${today}|${narrow}`;
-  if (stripCache.key === key) return stripCache.days;
   const tomorrow = addDaysLocal(timeZone, 1);
-  const days = Array.from({ length: DAYS_BACK + DAYS_AHEAD + 1 }, (_, index) => {
-    const date = addDaysLocal(timeZone, index - DAYS_BACK);
+  const narrow = window.innerWidth < 1280;
+  return Array.from({ length: STRIP_DAYS }, (_, index) => {
+    const date = addDaysLocal(timeZone, 1 + index);
     const noon = dateAtNoon(date);
     const weekday = noon.getUTCDay();
     const name = narrow ? capitalize(WEEKDAY_SHORT.format(noon)) : capitalize(WEEKDAY.format(noon));
     const dm = DAY_MONTH.format(noon).replace('.', '');
     const sub = date === today ? `${dm} · сегодня` : date === tomorrow ? `${dm} · завтра` : dm;
-    return { date, name, sub, weekend: weekday === 0 || weekday === 6, isToday: date === today, isPast: date < today, index };
+    return { date, name, sub, weekend: weekday === 0 || weekday === 6, isToday: date === today, isPast: date < today };
   });
-  stripCache = { key, days };
-  return days;
 }
-function colWidth() {
-  const scale = Math.min(160, Math.max(60, Number(state.settings.cardScale) || 100)) / 100;
-  return Math.round(160 * scale);
+/** Шаг ленты: ширина колонки + зазор. */
+function colStep() { const col = $('days')?.querySelector('.col'); return Math.max(60, (col?.offsetWidth ?? 150) + 7); }
+/** Индекс первого видимого дня ленты (0 = завтра). */
+function firstVisibleIndex() { const el = $('days'); return el ? Math.max(0, Math.min(STRIP_DAYS - 7, Math.round(el.scrollLeft / colStep()))) : 0; }
+function scrollToIndex(index, smooth = true) {
+  const el = $('days'); if (!el) return;
+  const target = Math.max(0, Math.min(STRIP_DAYS - 7, index)) * colStep();
+  el.scrollTo({ left: target, behavior: smooth ? 'smooth' : 'auto' });
+  state.daysScroll = target;
+  updateRangeLabel(index);
 }
-function colStep() { return colWidth() + 7; }
-function stripIndexOf(date) {
-  const days = stripDays();
-  if (date <= days[0].date) return 0;
-  if (date >= days[days.length - 1].date) return days.length - 1;
-  return Math.round((dateAtNoon(date) - dateAtNoon(days[0].date)) / 86400000);
+function shiftDays(count) { scrollToIndex(firstVisibleIndex() + count); }
+function goToDate(date) {
+  const timeZone = state.settings.timezone || 'Europe/Moscow';
+  const index = Math.round((dateAtNoon(date) - dateAtNoon(addDaysLocal(timeZone, 1))) / 86400000);
+  if (index < 0 || index >= STRIP_DAYS) toast('Доска показывает 4 недели вперёд');
+  scrollToIndex(index);
 }
-function firstVisibleIndex() {
-  const el = $('days');
-  return el ? Math.min(stripDays().length - 1, Math.max(0, Math.round(el.scrollLeft / colStep()))) : 0;
-}
-function scrollToDate(date, smooth = false) {
-  const el = $('days');
-  if (!el) return;
-  el.scrollTo({ left: stripIndexOf(date) * colStep(), behavior: smooth ? 'smooth' : 'auto' });
-}
-function scrollDays(count) {
-  const el = $('days');
-  if (!el) return;
-  el.scrollTo({ left: Math.max(0, (firstVisibleIndex() + count) * colStep()), behavior: 'smooth' });
-}
-/** Подпись видимого диапазона в шапке. */
-function updateRangeLabel() {
-  const el = $('days');
-  if (!el) return;
-  const days = stripDays();
-  const first = firstVisibleIndex();
-  const visible = Math.max(1, Math.floor((el.clientWidth + 7) / colStep()));
-  const last = Math.min(days.length - 1, first + visible - 1);
+function updateRangeLabel(index = firstVisibleIndex()) {
+  const days = boardDays();
+  const first = Math.max(0, Math.min(STRIP_DAYS - 7, index));
   const a = DAY_MONTH.format(dateAtNoon(days[first].date)).replace('.', '');
-  const b = DAY_MONTH.format(dateAtNoon(days[last].date)).replace('.', '');
-  $('weekLabel').textContent = first === last ? a : `${a} – ${b}`;
+  const b = DAY_MONTH.format(dateAtNoon(days[first + 6].date)).replace('.', '');
+  $('weekLabel').textContent = `${a} – ${b}`;
+  $('weekLabel').classList.toggle('off', first === 0);
 }
-let boardScroll = null; // px; null — первый рендер, встать на завтра
 
 /** Колонка «Сегодня» слева: всегда видна, какую бы неделю ни листали. */
 function todayColumn() {
@@ -641,7 +624,7 @@ function byBoardOrder(left, right) {
 /** Раскладка: { days: Map(date → tasks[]), none: tasks[] }. Просроченные попадают в «Сегодня» (на текущей неделе). */
 function boardData() {
   const timeZone = state.settings.timezone || 'Europe/Moscow';
-  const days = stripDays();
+  const days = boardDays();
   const today = todayLocal(timeZone);
   // «Сегодня» — отдельная колонка слева; в ленте её день остаётся, но карточки не дублируются.
   const buckets = { today: [], days: new Map(days.map((day) => [day.date, []])), none: [] };
@@ -691,15 +674,27 @@ function renderBoard() {
         <div class="col-head"><span class="name">${day.name}</span><span class="n">${tasks.length || ''}</span><span class="date">${day.sub}</span></div>
         <div class="col-body" data-zone="day" data-day="${day.date}">${body ?? tasks.map((task) => cardHtml(task)).join('')}</div>
       </section>`;
-  if ($('days')) boardScroll = $('days').scrollLeft;
   $('board').innerHTML = columnHtml(todayCol, buckets.today, 'today-pane')
     + `<div class="days" id="days">${days.map((day) => day.isToday
       ? columnHtml(day, buckets.today, '', '<div class="same-day">← задачи на сегодня — в колонке слева</div>')
       : columnHtml(day, buckets.days.get(day.date))).join('')}</div>`;
-  if (boardScroll === null) scrollToDate(addDaysLocal(state.settings.timezone || 'Europe/Moscow', 1));
-  else $('days').scrollLeft = boardScroll;
-  attachDaysPan($('days'));
+  const daysEl = $('days');
+  daysEl.scrollLeft = state.daysScroll || 0;
+  daysEl.addEventListener('scroll', () => { state.daysScroll = daysEl.scrollLeft; if (!pan) updateRangeLabel(); }, { passive: true });
+  // Автопрокрутка ленты, когда карточку тянут к её краю.
+  daysEl.addEventListener('dragover', (event) => {
+    if (!dragId) return;
+    const rect = daysEl.getBoundingClientRect();
+    if (event.clientX < rect.left + 48) daysEl.scrollLeft -= 14;
+    else if (event.clientX > rect.right - 48) daysEl.scrollLeft += 14;
+  });
+  attachDaysPan(daysEl);
   updateRangeLabel();
+  // Двойной клик по дню (не по карточке) — новая задача сразу на эту дату; по полке — без срока.
+  document.querySelectorAll('#board .col[data-day]').forEach((col) => {
+    col.addEventListener('dblclick', (event) => { if (!event.target.closest('.card, button')) openAdd(col.dataset.day); });
+  });
+
 
   const pool = buckets.none;
   $('shelf').innerHTML = `
@@ -708,6 +703,7 @@ function renderBoard() {
       <div class="col-body" data-zone="none">${pool.length ? pool.map((task) => cardHtml(task)).join('') : '<span class="empty-hint">Пул дел без даты. Перетащи карточку сюда, чтобы снять срок, или на день — чтобы назначить.</span>'}</div>
     </section>`;
 
+  $('shelf').querySelector('.col')?.addEventListener('dblclick', (event) => { if (!event.target.closest('.card, button')) openAdd(); });
   document.querySelectorAll('[data-toggle]').forEach((button) => {
     button.onclick = (event) => { event.stopPropagation(); toggleDone(button.dataset.toggle); };
   });
@@ -726,54 +722,61 @@ function renderBoard() {
 }
 
 // --- Лента дней: тянуть мышкой за день, колесо — вбок, автопрокрутка при переносе карточки ---
-let pan = null; // { el, x, left, moved } — лента тянется мышкой
+let pan = null; // { x, left, moved } — лента листается протяжкой мышкой за заголовок/пустое место
 window.addEventListener('mousemove', (event) => {
   if (!pan) return;
   const dx = event.clientX - pan.x;
-  if (!pan.moved && Math.abs(dx) < 4) return;
+  if (!pan.moved && Math.abs(dx) < 6) return;
   pan.moved = true;
-  pan.el.classList.add('panning');
-  pan.el.scrollLeft = pan.left - dx;
+  document.body.classList.add('panning');
+  const el = $('days'); if (el) el.scrollLeft = pan.left - dx;
 });
-window.addEventListener('mouseup', () => { if (pan) { pan.el.classList.remove('panning'); pan = null; } });
+window.addEventListener('mouseup', () => {
+  if (!pan) return;
+  document.body.classList.remove('panning');
+  const moved = pan.moved; pan = null;
+  if (moved) scrollToIndex(Math.round(($('days')?.scrollLeft ?? 0) / colStep())); // довести до целой колонки
+});
+let lastRightClick = 0;
 function attachDaysPan(el) {
   if (!el) return;
-  el.addEventListener('mousedown', (event) => {
-    if (event.button !== 0 || event.target.closest('.card, button')) return;
-    pan = { el, x: event.clientX, left: el.scrollLeft, moved: false };
-  });
-  el.addEventListener('wheel', (event) => {
-    if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) return; // горизонтальный жест тачпада — нативно
-    const body = event.target.closest('.col-body');
-    if (body && body.scrollHeight > body.clientHeight + 2) return; // внутри колонки есть что листать вниз
-    event.preventDefault();
-    el.scrollLeft += event.deltaY;
-  }, { passive: false });
-  el.addEventListener('scroll', () => { if (!rangeTimer) rangeTimer = requestAnimationFrame(() => { rangeTimer = null; updateRangeLabel(); }); });
-  el.addEventListener('dragover', (event) => {
-    if (!dragId) return;
-    const rect = el.getBoundingClientRect();
-    const edge = 70;
-    if (event.clientX < rect.left + edge) el.scrollLeft -= 14;
-    else if (event.clientX > rect.right - edge) el.scrollLeft += 14;
+  const cols = el.querySelectorAll('.col');
+  cols.forEach((col) => {
+    // Два правых щелчка подряд по дню (не по карточке) — вернуться к сегодняшним дням.
+    col.addEventListener('contextmenu', (event) => {
+      if (event.target.closest('.card')) return;
+      event.preventDefault();
+      const now = Date.now();
+      if (now - lastRightClick < 500) { lastRightClick = 0; if (firstVisibleIndex() !== 0) { scrollToIndex(0); toast('К сегодняшним дням'); } }
+      else lastRightClick = now;
+    });
+    col.addEventListener('mousedown', (event) => {
+      if (event.button !== 0 || event.target.closest('.card, button')) return;
+      pan = { x: event.clientX, left: el.scrollLeft, moved: false };
+    });
+    col.addEventListener('wheel', (event) => {
+      if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) { event.preventDefault(); shiftDays(event.deltaX > 0 ? 1 : -1); return; }
+      const body = event.target.closest('.col-body');
+      if (body && body.scrollHeight > body.clientHeight + 2) return; // внутри колонки есть что листать вниз
+      if (!event.shiftKey) return; // обычное колесо — ничего; Shift+колесо — листать дни
+      event.preventDefault();
+      shiftDays(event.deltaY > 0 ? 1 : -1);
+    }, { passive: false });
   });
 }
-let rangeTimer = null;
 
-/** Календарь по клику на подпись недели: выбрал день — лента прокрутилась к нему. */
+/** Календарь по клику на подпись дат: выбрал день — доска начинается с него. */
 function openRangeCalendar() {
   if (picker && picker.anchor === $('weekLabel')) { closePicker(); return; }
   closePicker();
-  const days = stripDays();
-  const first = days[firstVisibleIndex()].date;
+  const first = boardDays()[firstVisibleIndex()].date;
   const input = document.createElement('input');
   input.value = displayDate(first);
   const el = document.createElement('div');
   el.className = 'picker';
   el.addEventListener('mousedown', (event) => event.preventDefault());
   document.body.appendChild(el);
-  const visible = Math.max(1, Math.floor(($('days').clientWidth + 7) / colStep()));
-  picker = { kind: 'date', input, el, anchor: $('weekLabel'), month: first.slice(0, 7), range: visible, onPick: (iso) => scrollToDate(iso, true) };
+  picker = { kind: 'date', input, el, anchor: $('weekLabel'), month: first.slice(0, 7), range: 7, onPick: (iso) => goToDate(iso) };
   renderPicker();
 }
 
@@ -1618,7 +1621,7 @@ function renderSettings() {
       ${settings.wallpaperFile ? '<p class="hint">Чтобы заменить свою картинку, нажми «Своя картинка» ещё раз.</p>' : '<p class="hint">Своя картинка копируется в папку данных приложения (jpg, png, webp).</p>'}
       <div class="field"><label>Прозрачность дней и карточек: <span id="sOpacityValue">${Number(settings.panelOpacity) || 10}%</span></label>
         <input type="range" class="slim" id="sOpacity" min="5" max="60" step="5" value="${Number(settings.panelOpacity) || 10}" /></div>
-      <div class="field"><label>Размер карточек: <span id="sScaleValue">${Number(settings.cardScale) || 100}%</span></label>
+      <div class="field"><label>Высота карточек: <span id="sScaleValue">${Number(settings.cardScale) || 100}%</span></label>
         <input type="range" class="slim" id="sScale" min="60" max="160" step="5" value="${Number(settings.cardScale) || 100}" /></div>
     </div>
 
@@ -1646,8 +1649,8 @@ function renderSettings() {
   $('sTheme').onchange = async () => { await saveSettings({ theme: $('sTheme').value }); await applyAppearance(); };
   $('sOpacity').oninput = () => { $('sOpacityValue').textContent = `${$('sOpacity').value}%`; document.documentElement.style.setProperty('--panel-alpha', String(Number($('sOpacity').value) / 100)); };
   $('sOpacity').onchange = async () => { await saveSettings({ panelOpacity: Number($('sOpacity').value) }); await applyAppearance(); };
-  $('sScale').oninput = () => { $('sScaleValue').textContent = `${$('sScale').value}%`; document.documentElement.style.setProperty('--scale', String(Number($('sScale').value) / 100)); updateRangeLabel(); };
-  $('sScale').onchange = async () => { await saveSettings({ cardScale: Number($('sScale').value) }); await applyAppearance(); renderBoard(); };
+  $('sScale').oninput = () => { $('sScaleValue').textContent = `${$('sScale').value}%`; document.documentElement.style.setProperty('--scale', String(Number($('sScale').value) / 100)); };
+  $('sScale').onchange = async () => { await saveSettings({ cardScale: Number($('sScale').value) }); await applyAppearance(); };
   $('drawer').querySelectorAll('[data-wall]').forEach((button) => {
     button.onclick = async () => {
       const choice = button.dataset.wall;
@@ -1789,8 +1792,8 @@ function render() {
 
 $('quickAdd').onclick = () => openAdd();
 $('archiveButton').onclick = openArchive;
-$('weekPrev').onclick = () => scrollDays(-7);
-$('weekNext').onclick = () => scrollDays(7);
+$('weekPrev').onclick = () => shiftDays(-7);
+$('weekNext').onclick = () => shiftDays(7);
 $('weekLabel').onclick = openRangeCalendar;
 $('archiveModal').addEventListener('mousedown', (event) => { if (event.target === $('archiveModal')) closeArchive(); });
 $('confirmModal').addEventListener('mousedown', (event) => { if (event.target === $('confirmModal')) $('confirmModal').classList.remove('open'); });
