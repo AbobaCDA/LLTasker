@@ -129,13 +129,12 @@
   .timeline .slot { flex: 1; min-height: 0; border-top: 1px solid var(--grid-half); position: relative; }
   .timeline .slot.hour { border-top-color: var(--grid-hour); }
   /* Слева — узкая полоска времени (как в календарях): цифры часов с ореолом в цвет карточек, карточки её не закрывают. */
-  .timeline::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 18px; border-radius: 6px; background: rgba(var(--card-rgb), .3); }
-  .timeline .slot.hour::before { content: attr(data-h); position: absolute; left: 0; width: 18px; top: -6px; z-index: 1; font-size: 9px; line-height: 12px; text-align: center; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); opacity: .72; text-shadow: 0 0 2px rgba(var(--card-rgb), .95), 0 0 4px rgba(var(--card-rgb), .9); }
+  .timeline .slot.hour::before { content: attr(data-h); position: absolute; left: 0; width: 18px; top: -6px; z-index: 1; font-size: 9px; line-height: 12px; text-align: center; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); opacity: .85; text-shadow: 0 0 1px rgba(var(--card-rgb), 1), 0 0 2px rgba(var(--card-rgb), 1), 0 0 4px rgba(var(--card-rgb), 1), 0 0 7px rgba(var(--card-rgb), .95), 0 0 10px rgba(var(--card-rgb), .8); }
   .timeline .slot:first-child.hour::before { top: 0; }
   .timeline .card, .timeline .placeholder { position: absolute; left: 21px; right: 2px; width: auto; transition: top .12s ease, left .12s ease, transform .1s, box-shadow .1s; }
   .timeline .card:hover { z-index: 40 !important; }
   .timeline .placeholder { pointer-events: none; transition: top .08s ease; z-index: 50; }
-  .timeline .now { position: absolute; left: 18px; right: 0; height: 1px; background: var(--accent); opacity: .6; pointer-events: none; z-index: 2; }
+  .timeline .now { position: absolute; left: 19px; right: 0; height: 1px; background: var(--accent); opacity: .6; pointer-events: none; z-index: 2; }
   .timeline .now::before { content: ''; position: absolute; left: -1px; top: -2px; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
   .overdue, .allday { flex: none; display: flex; flex-direction: column; gap: 5px; max-height: 40%; overflow-y: auto; }
   .overdue { padding-bottom: 6px; }
@@ -296,6 +295,9 @@
   .section { border-top: 1px solid var(--line); margin-top: 14px; padding-top: 14px; }
   .section h4 { margin: 0 0 10px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
   .switch { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+  .update-pill { border-radius: 999px; padding: 6px 12px; font-size: 12px; font-weight: 600; color: #fff; background: var(--accent); border: 1px solid transparent; box-shadow: 0 2px 10px rgba(47, 111, 237, .35); animation: pill-in .3s ease; }
+  .update-pill:hover { filter: brightness(1.08); }
+  @keyframes pill-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
   .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 10px 16px; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 70vw; z-index: 40; }
   .toast.show { opacity: 1; }
   .badge { font-size: 11px; border-radius: 6px; padding: 1px 6px; background: var(--panel-2); color: var(--muted); }
@@ -325,6 +327,7 @@
     <input type="search" class="search glass" id="search" placeholder="Поиск" />
     <button class="icon-btn glass" id="showDone" title="Показывать выполненные">✓</button>
     <button class="icon-btn glass" id="archiveButton" title="Архив">▤</button>
+    <button class="update-pill" id="updateBtn" hidden title="Обновление скачано — перезапустить и установить">Обновить</button>
     <div class="status" id="status" title="Нажми, чтобы синхронизировать"><span class="dot" id="cloudDot"></span><span id="cloudText">Локальный режим</span></div>
     <button class="icon-btn glass" id="settingsButton" title="Настройки и аккаунт">⚙</button>
   </header>
@@ -1969,13 +1972,14 @@ function closeLog() { $('logModal').classList.remove('open'); }
 
 function updateLabel(update) {
   const map = {
-    idle: 'Обновления проверяются при запуске приложения.',
+    idle: 'Обновления проверяются при запуске и дальше каждые 4 часа.',
     dev: 'Проверка обновлений доступна только в установленной версии.',
     checking: 'Проверяем обновления…',
     available: `Найдена версия ${update.version}. Скачиваем.`,
     downloading: `Скачивание: ${update.percent ?? 0}%`,
     ready: `Версия ${update.version} скачана. Обновление пройдёт без окон: приложение закроется и само откроется через несколько секунд.`,
     current: 'Установлена последняя версия.',
+    publishing: `Версия ${update.version || ''} ещё публикуется на GitHub — проверю снова через минуту.`,
     error: `Ошибка обновления: ${update.error || 'неизвестно'}`,
   };
   return map[update.status] ?? '';
@@ -2050,7 +2054,19 @@ let resizeTimer = null;
 window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(renderBoard, 120); });
 bridge.onTasksChanged((tasks) => { state.tasks = tasks || []; render(); });
 bridge.onCloudStatus((cloud) => { state.cloud = { ...state.cloud, ...cloud }; render(); });
-bridge.onUpdateStatus((update) => { state.update = update; render(); });
+let announcedUpdate = null;
+bridge.onUpdateStatus((update) => {
+  state.update = update;
+  const btn = $('updateBtn');
+  if (btn) {
+    const ready = update.status === 'ready';
+    btn.hidden = !ready;
+    if (ready) btn.textContent = `Обновить до ${update.version || ''}`.trim();
+  }
+  if (update.status === 'ready' && announcedUpdate !== update.version) { announcedUpdate = update.version; toast(`Версия ${update.version} скачана — кнопка «Обновить» в шапке`); }
+  render();
+});
+$('updateBtn').onclick = () => bridge.installUpdate();
 bridge.onFocusTask((taskId) => { selectTask(taskId); });
 
 bootstrap();

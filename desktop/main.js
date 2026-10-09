@@ -234,6 +234,7 @@ function checkForUpdates() {
     return Promise.resolve(updateState);
   }
   if (!updateCheckPromise) {
+    lastUpdateCheckAt = Date.now();
     updateCheckPromise = autoUpdater.checkForUpdates()
       .catch((error) => {
         sendUpdateStatus('error', { error: String(error?.message ?? error) });
@@ -254,7 +255,29 @@ autoUpdater.on('update-available', (info) => sendUpdateStatus('available', { ver
 autoUpdater.on('update-not-available', () => sendUpdateStatus('current'));
 autoUpdater.on('download-progress', (progress) => sendUpdateStatus('downloading', { percent: Math.round(Number(progress?.percent ?? 0)) }));
 autoUpdater.on('update-downloaded', (info) => { log('обновление скачано', String(info?.version ?? '')); sendUpdateStatus('ready', { version: info?.version ?? null }); });
-autoUpdater.on('error', (error) => { log('ошибка обновления', String(error?.message ?? error)); sendUpdateStatus('error', { error: String(error?.message ?? error) }); });
+let publishRetries = 0;
+let publishRetryTimer = null;
+autoUpdater.on('error', (error) => {
+  const message = String(error?.message ?? error);
+  log('ошибка обновления', message);
+  // 404 на установщике: latest.yml уже виден, а .exe (100 МБ) ещё грузится на GitHub. Подождём и повторим.
+  if (/status 404|HttpError: 404|404/.test(message) && publishRetries < 5) {
+    publishRetries += 1;
+    clearTimeout(publishRetryTimer);
+    publishRetryTimer = setTimeout(() => checkForUpdates(), 60_000);
+    sendUpdateStatus('publishing', { error: null });
+    return;
+  }
+  sendUpdateStatus('error', { error: message });
+});
+autoUpdater.on('update-downloaded', () => { publishRetries = 0; });
+autoUpdater.on('update-not-available', () => { publishRetries = 0; });
+let lastUpdateCheckAt = 0;
+/** Проверка «по случаю»: при показе окна, но не чаще раза в час. */
+function checkForUpdatesIfStale() {
+  if (Date.now() - lastUpdateCheckAt < 60 * 60_000) return;
+  checkForUpdates();
+}
 
 // --- Окно, трей, автозапуск ----------------------------------------------------
 
@@ -523,6 +546,8 @@ if (!app.requestSingleInstanceLock()) {
     cloud.configure(settings());
     if (!process.argv.includes('--hidden')) mainWindow.show();
     checkForUpdates();
+    setInterval(() => checkForUpdates(), 4 * 60 * 60_000); // и дальше каждые 4 часа, пока приложение живёт в трее
+    mainWindow.on('show', () => checkForUpdatesIfStale());
   });
 
   app.on('activate', () => {

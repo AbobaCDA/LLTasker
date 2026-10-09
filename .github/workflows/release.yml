@@ -107,10 +107,12 @@ jobs:
             if (-not (Test-Path $asset)) { throw "Не найден обязательный файл обновления: $asset" }
           }
 
+          # Релиз создаём ЧЕРНОВИКОМ: пока он draft, приложение не видит latest.yml и не пытается
+          # скачать установщик, который ещё грузится (иначе у пользователей 404 на .exe).
           gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
           if ($LASTEXITCODE -ne 0) {
-            Write-Host "Релиза $tag ещё нет — создаю."
-            gh release create $tag --repo $env:GITHUB_REPOSITORY --title "LLTasker $version" --generate-notes
+            Write-Host "Релиза $tag ещё нет — создаю черновик."
+            gh release create $tag --repo $env:GITHUB_REPOSITORY --title "LLTasker $version" --generate-notes --draft
             if ($LASTEXITCODE -ne 0) { throw "Не удалось создать релиз $tag" }
           } else {
             Write-Host "Релиз $tag уже существует — обновляю файлы."
@@ -118,5 +120,9 @@ jobs:
 
           gh release upload $tag $assets --repo $env:GITHUB_REPOSITORY --clobber
           if ($LASTEXITCODE -ne 0) { throw "Не удалось загрузить файлы релиза" }
+
+          # Все файлы на месте — публикуем одним действием.
+          gh release edit $tag --repo $env:GITHUB_REPOSITORY --draft=false --latest
+          if ($LASTEXITCODE -ne 0) { throw "Файлы загружены, но релиз остался черновиком — опубликуйте его вручную на GitHub" }
 
           Write-Host "Готово: https://github.com/$env:GITHUB_REPOSITORY/releases/tag/$tag"
