@@ -128,7 +128,7 @@
   .timeline { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
   .timeline .slot { flex: 1; min-height: 0; border-top: 1px solid var(--grid-half); position: relative; }
   .timeline .slot.hour { border-top-color: var(--grid-hour); }
-  .timeline .slot.hour::before { content: attr(data-h); position: absolute; left: 2px; top: 0; font-size: 9px; line-height: 1; color: var(--muted); opacity: .75; }
+  .timeline .slot.hour::before { content: attr(data-h); position: absolute; left: 1px; top: 1px; z-index: 1; font-size: 9px; line-height: 12px; min-width: 14px; text-align: center; padding: 0 3px; border-radius: 4px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); background: rgba(var(--card-rgb), .62); backdrop-filter: blur(3px); box-shadow: 0 0 0 1px rgba(var(--card-rgb), .25); opacity: .9; }
   .timeline .card, .timeline .placeholder { position: absolute; left: 2px; right: 2px; width: auto; transition: top .12s ease, left .12s ease, transform .1s, box-shadow .1s; }
   .timeline .card:hover { z-index: 40 !important; }
   .timeline .placeholder { pointer-events: none; transition: top .08s ease; z-index: 50; }
@@ -179,6 +179,13 @@
   body.cards-tight .board .card .title { -webkit-line-clamp: 1; }
   body.cards-tight .board .card .foot { display: none; }
   body.cards-tight .board .card .top { font-size: .8em; }
+  /* Ниже 40 % — карточка в одну строку: время · название · галочка. */
+  body.cards-line .board .timeline .card { flex-direction: row; align-items: center; gap: .4em; padding: .2em .5em .2em .6em; }
+  body.cards-line .board .timeline .card .top { display: contents; }
+  body.cards-line .board .timeline .card .top .time, body.cards-line .board .timeline .card .top .late { font-size: .85em; white-space: nowrap; }
+  body.cards-line .board .timeline .card .title { order: 2; flex: 1; min-width: 0; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: .95em; }
+  body.cards-line .board .timeline .card .check { order: 3; margin-left: auto; }
+  body.cards-line .board .timeline .card .foot { display: none; }
   .card.done { opacity: .55; }
   .card.done .title { text-decoration: line-through; color: var(--muted); }
   .card .top { display: flex; align-items: center; gap: .45em; font-size: .85em; color: var(--muted); }
@@ -512,10 +519,11 @@ async function applyAppearance() {
 
 /** Высота карточек: CSS-переменная + режимы «компактно»/«в одну строку» для низких карточек. */
 function setCardScale(value) {
-  const scale = Math.min(160, Math.max(40, Number(value) || 100));
+  const scale = Math.min(160, Math.max(25, Number(value) || 100));
   document.documentElement.style.setProperty('--scale', String(scale / 100));
   document.body.classList.toggle('cards-compact', scale < 80);
   document.body.classList.toggle('cards-tight', scale < 60);
+  document.body.classList.toggle('cards-line', scale < 40);
   if (typeof layoutTimelines === 'function') layoutTimelines();
 }
 
@@ -1835,7 +1843,7 @@ function renderSettings() {
       <div class="field"><label>Прозрачность дней и карточек: <span id="sOpacityValue">${Number(settings.panelOpacity) || 10}%</span></label>
         <input type="range" class="slim" id="sOpacity" min="5" max="60" step="5" value="${Number(settings.panelOpacity) || 10}" /></div>
       <div class="field"><label>Высота карточек: <span id="sScaleValue">${Number(settings.cardScale) || 100}%</span></label>
-        <input type="range" class="slim" id="sScale" min="40" max="160" step="5" value="${Number(settings.cardScale) || 100}" /></div>
+        <input type="range" class="slim" id="sScale" min="25" max="160" step="5" value="${Number(settings.cardScale) || 100}" /></div>
     </div>
 
     <div class="section">

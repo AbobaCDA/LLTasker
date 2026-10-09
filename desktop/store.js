@@ -43,7 +43,7 @@ export function normalizeState(raw) {
   settings.panelOpacity = Number.isFinite(opacity) ? Math.min(60, Math.max(5, Math.round(opacity))) : 10;
   delete settings.cardOpacity; // старая настройка до 0.3.3 — больше не используется
   const scale = Number(settings.cardScale);
-  settings.cardScale = Number.isFinite(scale) ? Math.min(160, Math.max(40, Math.round(scale / 5) * 5)) : 100;
+  settings.cardScale = Number.isFinite(scale) ? Math.min(160, Math.max(25, Math.round(scale / 5) * 5)) : 100;
   const digestMatch = /^(\d{1,2}):(\d{2})$/.exec(String(settings.digestAt));
   const digestValid = digestMatch && Number(digestMatch[1]) <= 23 && Number(digestMatch[2]) <= 59;
   settings.digestAt = digestValid ? `${String(Number(digestMatch[1])).padStart(2, '0')}:${digestMatch[2]}` : '09:00';
